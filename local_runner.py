@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Duo Watch PC runner: checks Apple every ~15 seconds from your own computer.
+Duo Watch PC runner: checks Apple about once a minute from your own computer.
 
 - Same checking + alert logic as the GitHub checker (checker/check_stock.py).
 - Push alert the moment a color lands at a store within your radius.
@@ -14,8 +14,8 @@ Private files (gitignored, never commit them), next to this script:
   config.local.json   {"zip": "...", "ntfy_topic": "...", optional overrides below}
   .env.local          GITHUB_TOKEN=...   GITHUB_REPO=hasskhalid/iphone-stock
 
-Optional settings in config.local.json (defaults shown):
-  "poll_seconds": 15, "heartbeat_seconds": 120, "nag_minutes": 2, "nag_max": 15
+Optional settings in config.local.json (defaults shown; poll can't go below 45s):
+  "poll_seconds": 60, "heartbeat_seconds": 120, "nag_minutes": 2, "nag_max": 15
 
 Run:  python local_runner.py          (or double-click start-runner.bat on Windows)
       python local_runner.py --once   (single check, handy for testing)
@@ -37,8 +37,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "checker"))
 import check_stock as cs  # noqa: E402
 
-DEFAULTS = {"poll_seconds": 15, "heartbeat_seconds": 120, "nag_minutes": 2, "nag_max": 15}
-MAX_BACKOFF = 300
+DEFAULTS = {"poll_seconds": 60, "heartbeat_seconds": 120, "nag_minutes": 2, "nag_max": 15}
+MIN_POLL = 45          # faster than this gets your connection rate-limited by Apple (HTTP 541)
+MAX_BACKOFF = 900      # when Apple pushes back, wait up to 15 min between tries
 API = "https://api.github.com"
 
 
@@ -219,7 +220,7 @@ def main(argv: list[str] | None = None) -> int:
     config = merge_config(base, local)
     env = {**load_env(".env.local"), **{k: v for k, v in os.environ.items() if k in ("GITHUB_TOKEN", "GITHUB_REPO")}}
     settings = cs.load_settings(config)
-    poll = max(10, int(config["poll_seconds"]))
+    poll = max(MIN_POLL, int(config["poll_seconds"]))
     heartbeat = max(30, int(config["heartbeat_seconds"]))
 
     if args.test_alert:
@@ -302,7 +303,8 @@ def main(argv: list[str] | None = None) -> int:
                 return 0
             wait = poll if not errors_in_row else min(MAX_BACKOFF, poll * 2 ** errors_in_row)
             if errors_in_row:
-                print(f"           backing off {wait}s after {errors_in_row} error(s)")
+                hint = " (Apple is rate-limiting this connection; it clears on its own)" if "541" in (status.get("error") or "") else ""
+                print(f"           backing off {wait}s after {errors_in_row} error(s){hint}")
             time.sleep(max(1.0, wait + random.uniform(0, 3) - (time.time() - t0)))
     except KeyboardInterrupt:
         print("\nStopped. Alerts are off until you start it again (GitHub keeps checking every ~5 min).")

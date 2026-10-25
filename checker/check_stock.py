@@ -368,7 +368,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     prev = load_json(args.prev, {})
-    if args.defer_to_pc and prev.get("source") == "pc":
+    if args.defer_to_pc and prev.get("source") == "pc" and not prev.get("error"):
         age = seconds_since(prev.get("checked_at"))
         if age is not None and age < args.defer_to_pc:
             print(f"PC runner is live (last check {int(age)}s ago); skipping this backup check.")

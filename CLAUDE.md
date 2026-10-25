@@ -14,15 +14,15 @@ home-screen dashboard. Keep it free to run and dependency-light.
   newly became available (compares against the previous status.json).
   `--test-alert` sends a test push and exits.
 - `local_runner.py` (+ `start-runner.bat`): PC runner on the owner's always-on Windows PC.
-  Polls every `poll_seconds` (15) via `check_stock.check_once`, exponential backoff on
-  errors (max 300s), nag mode (re-push every `nag_minutes` while in stock, max `nag_max`),
+  Polls every `poll_seconds` (60, floor 45: faster got the home IP rate-limited by Apple with HTTP 541) via `check_stock.check_once`, exponential backoff on
+  errors (max 900s), nag mode (re-push every `nag_minutes` while in stock, max `nag_max`),
   publishes status/history to the `status` branch through the GitHub Git Data API
   (tree → orphan commit → force ref; no git needed) on availability change or every
   `heartbeat_seconds` (120). Private files: `config.local.json` (zip, ntfy_topic,
   overrides; models merge by part) and `.env.local` (GITHUB_TOKEN, GITHUB_REPO).
   Local state: `prev_status.json`, `history.local.json`. All gitignored.
 - `.github/workflows/check-stock.yml`: backup, runs every 5 min; `--defer-to-pc 300` makes it
-  skip (and not publish) while the PC runner's status (`source: "pc"`) is < 5 min old. Reads the previous status
+  skip (and not publish) while the PC runner's status (`source: "pc"`) is < 5 min old and not erroring. Reads the previous status
   from the `status` branch, runs the checker, force-pushes a single-commit `status`
   branch containing `status.json` + `history.json` (keeps main history clean).
 - `.github/workflows/test-alert.yml`: manual "Send test alert" workflow.

@@ -38,7 +38,7 @@ class ConfigTests(unittest.TestCase):
     def test_local_overrides_and_defaults(self):
         cfg = lr.merge_config(BASE, {"zip": "12345", "ntfy_topic": "t", "poll_seconds": 20})
         self.assertEqual(cfg["zip"], "12345")
-        self.assertEqual(cfg["poll_seconds"], 20)
+        self.assertEqual(cfg["poll_seconds"], 20)   # raw value; main() applies MIN_POLL
         self.assertEqual(cfg["heartbeat_seconds"], 120)
         self.assertEqual(len(cfg["models"]), 2)
 
@@ -145,6 +145,14 @@ class HandoffTests(unittest.TestCase):
     def test_github_runs_when_pc_is_stale(self):
         old = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat(timespec="seconds")
         self.assertTrue(self.run_checker({"source": "pc", "checked_at": old}))
+
+    def test_github_takes_over_when_pc_is_erroring(self):
+        fresh = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        self.assertTrue(self.run_checker({"source": "pc", "checked_at": fresh, "error": "HTTP Error 541"}))
+
+    def test_poll_floor_protects_against_rate_limits(self):
+        self.assertGreaterEqual(lr.MIN_POLL, 45)
+        self.assertGreaterEqual(lr.merge_config(BASE, {})["poll_seconds"], lr.MIN_POLL)
 
     def test_github_runs_after_its_own_check(self):
         fresh = datetime.now(timezone.utc).isoformat(timespec="seconds")

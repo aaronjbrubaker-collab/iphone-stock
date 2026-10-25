@@ -66,7 +66,7 @@ After it finishes (~30 s), open the dashboard on your phone and use
 **Share → Add to Home Screen**. From then on it runs every 5 minutes on its own.
 
 ## Fastest mode: run it on your PC (recommended)
-GitHub's schedule is a backup that often runs late. `local_runner.py` checks every 15 s
+GitHub's schedule is a backup that often runs late. `local_runner.py` checks about once a minute
 from your own computer, pushes alerts instantly, re-alerts every 2 min while it's still in
 stock ("nag mode"), and keeps the phone app live. GitHub automatically stands down while
 your PC is running and takes over if the PC goes offline.
@@ -84,7 +84,7 @@ your PC is running and takes over if the PC goes offline.
    `start-runner.bat` in that folder.
 5. **Keep the PC awake:** Settings → System → Power → Sleep: *Never* (screen can turn off).
 
-The app header shows **"Live · your PC checks every 15s"** with a green dot while it's running.
+The app header shows **"Live · your PC checks every 60s"** with a green dot while it's running.
 
 ## Test your alerts
 - **Actions → Send test alert → Run workflow** sends a test push through the same path
