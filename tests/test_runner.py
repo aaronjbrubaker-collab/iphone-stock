@@ -39,7 +39,7 @@ class ConfigTests(unittest.TestCase):
         cfg = lr.merge_config(BASE, {"zip": "12345", "ntfy_topic": "t", "poll_seconds": 20})
         self.assertEqual(cfg["zip"], "12345")
         self.assertEqual(cfg["poll_seconds"], 20)   # raw value; main() applies MIN_POLL
-        self.assertEqual(cfg["heartbeat_seconds"], 120)
+        self.assertEqual(cfg["heartbeat_seconds"], 60)
         self.assertEqual(len(cfg["models"]), 2)
 
     def test_local_models_keep_repo_urls(self):

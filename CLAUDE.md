@@ -20,7 +20,7 @@ home-screen dashboard. Keep it free to run and dependency-light.
   errors (max 900s), nag mode (re-push every `nag_minutes` while in stock, max `nag_max`),
   publishes status/history to the `status` branch through the GitHub Git Data API
   (tree → orphan commit → force ref; no git needed) on availability change or every
-  `heartbeat_seconds` (120). Private files: `config.local.json` (zip, ntfy_topic,
+  `heartbeat_seconds` (60, i.e. every check, so the app shows each check). Private files: `config.local.json` (zip, ntfy_topic,
   overrides; models merge by part) and `.env.local` (GITHUB_TOKEN, GITHUB_REPO).
   Local state: `prev_status.json`, `history.local.json`. All gitignored.
 - `.github/workflows/check-stock.yml`: backup, runs every 5 min; `--defer-to-pc 300` makes it

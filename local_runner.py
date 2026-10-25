@@ -15,7 +15,7 @@ Private files (gitignored, never commit them), next to this script:
   .env.local          GITHUB_TOKEN=...   GITHUB_REPO=hasskhalid/iphone-stock
 
 Optional settings in config.local.json (defaults shown; poll can't go below 45s):
-  "poll_seconds": 60, "heartbeat_seconds": 120, "nag_minutes": 2, "nag_max": 15
+  "poll_seconds": 60, "heartbeat_seconds": 60, "nag_minutes": 2, "nag_max": 15
 
 Run:  python local_runner.py          (or double-click start-runner.bat on Windows)
       python local_runner.py --once   (single check, handy for testing)
@@ -37,7 +37,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "checker"))
 import check_stock as cs  # noqa: E402
 
-DEFAULTS = {"poll_seconds": 60, "heartbeat_seconds": 120, "nag_minutes": 2, "nag_max": 15}
+DEFAULTS = {"poll_seconds": 60, "heartbeat_seconds": 60, "nag_minutes": 2, "nag_max": 15}
 MIN_POLL = 45          # faster than this gets your connection rate-limited by Apple (HTTP 541)
 MAX_BACKOFF = 900      # when Apple pushes back, wait up to 15 min between tries
 API = "https://api.github.com"
