@@ -181,13 +181,12 @@
   @keyframes rise { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
   .stat b.pop { animation: pop .45s cubic-bezier(.3,1.8,.5,1); display: inline-block; }
   @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
-  .rbtn span { display: inline-block; transition: transform .5s cubic-bezier(.3,1.4,.5,1); }
-  .rbtn:hover span { transform: rotate(90deg); }
+  .rbtn span { display: inline-block; animation: rot 3.5s linear infinite; will-change: transform; }
   .twirl .rbtn span { animation: rot .6s cubic-bezier(.4,1.6,.5,1) 1; }
-  body.scanning .rbtn span { animation: rot 1.1s linear infinite; }
+  body.scanning .rbtn span, .rbtn.spin span { animation: rot .9s linear infinite; }
   .banner.hot { animation: breathe 1.6s ease-in-out infinite; }
   @keyframes breathe { 0%,100% { box-shadow: 0 0 0 0 rgba(92,242,163,.0); } 50% { box-shadow: 0 0 24px 2px rgba(92,242,163,.28); } }
-  @media (prefers-reduced-motion: reduce) { section.enter, .intro *, .stat b.pop, .twirl .rbtn span, body.scanning .rbtn span, .banner.hot { animation: none !important; } }
+  @media (prefers-reduced-motion: reduce) { section.enter, .intro *, .stat b.pop, .twirl .rbtn span, body.scanning .rbtn span, .rbtn span, .banner.hot { animation: none !important; } }
   /* Per-store refresh button */
   .rbtn { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: var(--card-2); color: var(--muted); font-size: 15px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
   .rbtn:active { transform: scale(.92); }
