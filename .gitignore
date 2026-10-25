@@ -4,3 +4,11 @@ status.json
 prev_status.json
 publish/
 .DS_Store
+# PC runner private files and local state (never commit)
+config.local.json
+.env.local
+.env
+prev_status.json
+history.local.json
+*.tmp
+local_runner_grok.py

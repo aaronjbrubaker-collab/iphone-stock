@@ -262,6 +262,83 @@ def load_json(path: str | None, default):
         return default
 
 
+def load_settings(config: dict) -> dict:
+    """Resolve settings from a config dict plus APPLE_ZIP / NTFY_TOPIC env vars."""
+    radius = config.get("radius_miles")
+    return {
+        "models": [m for m in config.get("models", []) if m.get("part") and "REPLACE" not in m["part"]],
+        "zip": os.environ.get("APPLE_ZIP") or str(config.get("zip", "")),
+        "max_stores": int(config.get("max_stores", 12)),
+        "radius": float(radius) if radius else None,
+        "topic": (os.environ.get("NTFY_TOPIC") or str(config.get("ntfy_topic", ""))).strip(),
+        "server": os.environ.get("NTFY_SERVER", "https://ntfy.sh"),
+    }
+
+
+def seconds_since(iso: str | None) -> float | None:
+    if not iso:
+        return None
+    try:
+        then = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if then.tzinfo is None:
+        then = then.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - then).total_seconds()
+
+
+def check_once(settings: dict, prev: dict, history: dict, *, source: str = "cli",
+               fixture: str | None = None, dry_run: bool = False, log=print) -> tuple[dict, dict, list]:
+    """One full check: fetch, parse, log history events, send alerts.
+
+    Returns (status, history, alerts) where alerts is a list of (title, message, click).
+    Never raises; failures are reported in status["error"] with the last good data kept.
+    """
+    if not isinstance(history, dict) or not isinstance(history.get("events"), list):
+        history = {"events": []}
+    models = settings["models"]
+    status = {
+        "source": source,
+        "radius_miles": settings["radius"],
+        "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "error": None,
+        "models": [],
+    }
+    alerts: list = []
+    try:
+        if not models:
+            raise RuntimeError("No models configured. Add part numbers to config.json.")
+        if not fixture and not settings["zip"]:
+            raise RuntimeError("No ZIP code. Set the APPLE_ZIP secret or 'zip' in config.json.")
+        data = load_json(fixture, None) if fixture else fetch_apple([m["part"] for m in models], settings["zip"])
+        if data is None:
+            raise RuntimeError(f"Could not read fixture {fixture}")
+        status["models"] = parse_response(data, models, settings["max_stores"], settings["radius"])
+    except Exception as e:  # keep the last good data visible on the dashboard
+        status["error"] = str(e)
+        status["models"] = prev.get("models", [])
+        status["last_success_at"] = prev.get("last_success_at") or prev.get("checked_at")
+        log(f"ERROR: {e}")
+        return status, history, alerts
+
+    status["last_success_at"] = status["checked_at"]
+    base = prev if (prev.get("models") is not None or prev.get("checked_at")) else {}
+    history["events"].extend(change_events(base, status["models"], status["checked_at"]))
+    history["events"] = history["events"][-HISTORY_LIMIT:]
+    history["updated_at"] = status["checked_at"]
+
+    fresh = new_availability(prev, status["models"])
+    alerts = build_alerts(fresh, status["models"])
+    for title, message, click in alerts:
+        if settings["topic"] or dry_run:
+            try:
+                send_ntfy(settings["topic"], title, message, settings["server"], dry_run, click=click)
+            except Exception as e:
+                log(f"WARN: push failed: {e}")
+        log(f"ALERT: {title}")
+    return status, history, alerts
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Check Apple Store pickup stock for iPhones.")
     ap.add_argument("--config", default="config.json")
@@ -272,72 +349,35 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--fixture", default=None, help="Read Apple response from a file instead of the network")
     ap.add_argument("--dry-run", action="store_true", help="Print alerts instead of sending them")
     ap.add_argument("--test-alert", action="store_true", help="Send a test push notification and exit")
+    ap.add_argument("--source", default="cli", help="Label for who produced this status (github, pc, cli)")
+    ap.add_argument("--defer-to-pc", type=int, default=0, metavar="SECONDS",
+                    help="Skip (write nothing) if the PC runner published within this many seconds")
     args = ap.parse_args(argv)
 
-    config = load_json(args.config, {})
-    models = [m for m in config.get("models", []) if m.get("part") and "REPLACE" not in m["part"]]
-    zip_code = os.environ.get("APPLE_ZIP") or str(config.get("zip", ""))
-    max_stores = int(config.get("max_stores", 12))
-    radius = config.get("radius_miles")
-    radius = float(radius) if radius else None
-    topic = (os.environ.get("NTFY_TOPIC") or str(config.get("ntfy_topic", ""))).strip()
-    server = os.environ.get("NTFY_SERVER", "https://ntfy.sh")
+    settings = load_settings(load_json(args.config, {}))
 
     if args.test_alert:
-        if not topic and not args.dry_run:
+        if not settings["topic"] and not args.dry_run:
             print("ERROR: no ntfy topic set (NTFY_TOPIC secret)", file=sys.stderr)
             return 1
-        url = models[0].get("url", BUY_URL) if models else BUY_URL
-        send_ntfy(topic, "Test: iPhone stock alerts are working",
+        url = settings["models"][0].get("url", BUY_URL) if settings["models"] else BUY_URL
+        send_ntfy(settings["topic"], "Test: iPhone stock alerts are working",
                   "This is what a restock alert looks like. Tap to open the Apple Store.",
-                  server, args.dry_run, click=url, priority="high", tags="iphone,white_check_mark")
+                  settings["server"], args.dry_run, click=url, priority="high", tags="iphone,white_check_mark")
         print("Test alert sent.")
         return 0
 
     prev = load_json(args.prev, {})
+    if args.defer_to_pc and prev.get("source") == "pc":
+        age = seconds_since(prev.get("checked_at"))
+        if age is not None and age < args.defer_to_pc:
+            print(f"PC runner is live (last check {int(age)}s ago); skipping this backup check.")
+            return 0
+
     history = load_json(args.history_in, {"events": []})
-    if not isinstance(history, dict) or not isinstance(history.get("events"), list):
-        history = {"events": []}
-
-    status = {
-        "radius_miles": radius,
-        "checked_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "error": None,
-        "models": [],
-    }
-
-    try:
-        if not models:
-            raise RuntimeError("No models configured. Add part numbers to config.json.")
-        if not args.fixture and not zip_code:
-            raise RuntimeError("No ZIP code. Set the APPLE_ZIP secret or 'zip' in config.json.")
-        data = load_json(args.fixture, None) if args.fixture else fetch_apple(
-            [m["part"] for m in models], zip_code
-        )
-        if data is None:
-            raise RuntimeError(f"Could not read fixture {args.fixture}")
-        status["models"] = parse_response(data, models, max_stores, radius)
-    except Exception as e:  # keep the last good data visible on the dashboard
-        status["error"] = str(e)
-        status["models"] = prev.get("models", [])
-        status["last_success_at"] = prev.get("last_success_at") or prev.get("checked_at")
-        print(f"ERROR: {e}", file=sys.stderr)
-    else:
-        status["last_success_at"] = status["checked_at"]
-        if prev.get("models") is not None or prev.get("checked_at"):
-            history["events"].extend(change_events(prev, status["models"], status["checked_at"]))
-        else:  # first ever run: record what's already in stock, no sell-outs
-            history["events"].extend(change_events({}, status["models"], status["checked_at"]))
-        history["events"] = history["events"][-HISTORY_LIMIT:]
-
-        fresh = new_availability(prev, status["models"])
-        for title, message, click in build_alerts(fresh, status["models"]):
-            if topic or args.dry_run:
-                try:
-                    send_ntfy(topic, title, message, server, args.dry_run, click=click)
-                except Exception as e:
-                    print(f"WARN: push failed: {e}", file=sys.stderr)
-            print(f"ALERT: {title}")
+    status, history, _ = check_once(settings, prev, history, source=args.source,
+                                    fixture=args.fixture, dry_run=args.dry_run,
+                                    log=lambda m: print(m, file=sys.stderr if m.startswith(("ERROR", "WARN")) else sys.stdout))
 
     history["updated_at"] = status["checked_at"]
     with open(args.out, "w", encoding="utf-8") as f:

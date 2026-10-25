@@ -13,7 +13,16 @@ home-screen dashboard. Keep it free to run and dependency-light.
   and POSTs an urgent ntfy push (Click = that color's Apple buy page) for stores that
   newly became available (compares against the previous status.json).
   `--test-alert` sends a test push and exits.
-- `.github/workflows/check-stock.yml`: runs every 5 min. Reads the previous status
+- `local_runner.py` (+ `start-runner.bat`): PC runner on the owner's always-on Windows PC.
+  Polls every `poll_seconds` (15) via `check_stock.check_once`, exponential backoff on
+  errors (max 300s), nag mode (re-push every `nag_minutes` while in stock, max `nag_max`),
+  publishes status/history to the `status` branch through the GitHub Git Data API
+  (tree → orphan commit → force ref; no git needed) on availability change or every
+  `heartbeat_seconds` (120). Private files: `config.local.json` (zip, ntfy_topic,
+  overrides; models merge by part) and `.env.local` (GITHUB_TOKEN, GITHUB_REPO).
+  Local state: `prev_status.json`, `history.local.json`. All gitignored.
+- `.github/workflows/check-stock.yml`: backup, runs every 5 min; `--defer-to-pc 300` makes it
+  skip (and not publish) while the PC runner's status (`source: "pc"`) is < 5 min old. Reads the previous status
   from the `status` branch, runs the checker, force-pushes a single-commit `status`
   branch containing `status.json` + `history.json` (keeps main history clean).
 - `.github/workflows/test-alert.yml`: manual "Send test alert" workflow.
@@ -21,7 +30,11 @@ home-screen dashboard. Keep it free to run and dependency-light.
   Stock (store cards, one row per color), Recent changes, Patterns (restocks by hour /
   store). Fetches `status.json` + `history.json` from
   `raw.githubusercontent.com/<user>/<repo>/status/`, deriving user/repo from the Pages
-  URL (`?src=<url>` sets the folder, `./` fallback for local testing). Has a
+  URL. Resolves the branch head sha via api.github.com (conditional request, 304s are
+  free) then fetches files by sha from raw (raw caches branch names ~5 min, which made
+  refresh look broken). Falls back to the branch URL if the API is rate limited.
+  Syncs every 20s while open, live "updated Xs ago", pull to refresh, source badge.
+  `?repo=owner/name` overrides (handy for local testing), `?src=<url>` for local files. Has a
   "Send test push" box; the ntfy topic is stored in the viewer's localStorage only.
 - `config.json`: models (`label`, `color`, `part`, `url`), `zip`, `radius_miles`, `max_stores`,
   optional `ntfy_topic`. Env vars `APPLE_ZIP` / `NTFY_TOPIC` (repo secrets) override.
@@ -29,7 +42,7 @@ home-screen dashboard. Keep it free to run and dependency-light.
   `tests/fixtures/live_sample_nyc.json` is a trimmed real response for reference.
 
 ## status.json shape
-`{radius_miles, checked_at, last_success_at, error, models:[{part, label, color, url,
+`{source ("pc"|"github"|"cli"), poll_seconds?, runner?, radius_miles, checked_at, last_success_at, error, models:[{part, label, color, url,
 any_available, stores:[{id, name, city, distance, miles, available, quote, address,
 phone, store_url, maps_url}]}]}`. The public repo must never contain the ZIP or topic.
 On failure the checker keeps the previous `models` and sets `error`.

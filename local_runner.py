@@ -1,0 +1,313 @@
+#!/usr/bin/env python3
+"""
+Duo Watch PC runner: checks Apple every ~15 seconds from your own computer.
+
+- Same checking + alert logic as the GitHub checker (checker/check_stock.py).
+- Push alert the moment a color lands at a store within your radius.
+- Nag mode: while it's still in stock, re-alerts every few minutes so you can't miss it.
+- Publishes status.json + history.json to the repo's "status" branch through the
+  GitHub API (no git install needed): immediately when stock changes, otherwise every
+  couple of minutes as a heartbeat. The phone app reads from there.
+- Backs off automatically if Apple starts refusing requests, so you don't get blocked.
+
+Private files (gitignored, never commit them), next to this script:
+  config.local.json   {"zip": "...", "ntfy_topic": "...", optional overrides below}
+  .env.local          GITHUB_TOKEN=...   GITHUB_REPO=hasskhalid/iphone-stock
+
+Optional settings in config.local.json (defaults shown):
+  "poll_seconds": 15, "heartbeat_seconds": 120, "nag_minutes": 2, "nag_max": 15
+
+Run:  python local_runner.py          (or double-click start-runner.bat on Windows)
+      python local_runner.py --once   (single check, handy for testing)
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import random
+import sys
+import time
+import urllib.error
+import urllib.request
+from datetime import datetime, timezone
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(HERE, "checker"))
+import check_stock as cs  # noqa: E402
+
+DEFAULTS = {"poll_seconds": 15, "heartbeat_seconds": 120, "nag_minutes": 2, "nag_max": 15}
+MAX_BACKOFF = 300
+API = "https://api.github.com"
+
+
+# --------------------------------------------------------------------------
+# Config
+# --------------------------------------------------------------------------
+
+def load_env(path: str) -> dict:
+    env = {}
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    env[k.strip()] = v.strip().strip('"').strip("'")
+    return env
+
+
+def merge_config(base: dict, local: dict) -> dict:
+    """Overlay config.local.json on config.json. Models merge by part number so a
+    local file with just {"part": ...} keeps the repo's label, color and buy link."""
+    out = {**base, **{k: v for k, v in local.items() if k != "models"}}
+    if local.get("models"):
+        by_part = {m.get("part"): m for m in base.get("models", [])}
+        out["models"] = [{**by_part.get(m.get("part"), {}), **m} for m in local["models"]]
+    for k, v in DEFAULTS.items():
+        out.setdefault(k, v)
+    return out
+
+
+def mask(text: str, keep: int = 4) -> str:
+    """Hide most of a secret in console output (safe to screen-share)."""
+    if not text:
+        return "(not set)"
+    return text[:keep] + "…" + text[-2:] if len(text) > keep + 2 else "…"
+
+
+# --------------------------------------------------------------------------
+# Publishing to GitHub (status branch) via the Git Data API
+# --------------------------------------------------------------------------
+
+class GitHubPublisher:
+    def __init__(self, token: str, repo: str, branch: str = "status", request=None):
+        self.token, self.repo, self.branch = token, repo, branch
+        self._request = request or self._http
+
+    def _http(self, method: str, path: str, body: dict | None = None) -> tuple[int, dict]:
+        req = urllib.request.Request(
+            f"{API}{path}",
+            data=json.dumps(body).encode() if body is not None else None,
+            method=method,
+            headers={
+                "Authorization": f"Bearer {self.token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": "2022-11-28",
+                "User-Agent": "duo-watch-local-runner",
+                "Content-Type": "application/json",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=20) as resp:
+                return resp.status, json.loads(resp.read() or b"{}")
+        except urllib.error.HTTPError as e:
+            try:
+                return e.code, json.loads(e.read() or b"{}")
+            except json.JSONDecodeError:
+                return e.code, {}
+
+    def publish(self, files: dict[str, str], message: str) -> str:
+        """Replace the branch with a single commit containing `files`. Returns commit sha."""
+        r = f"/repos/{self.repo}"
+        code, tree = self._request("POST", f"{r}/git/trees", {
+            "tree": [{"path": p, "mode": "100644", "type": "blob", "content": c} for p, c in files.items()]
+        })
+        if code != 201:
+            raise RuntimeError(f"create tree failed ({code}): {tree.get('message', '')}")
+        code, commit = self._request("POST", f"{r}/git/commits",
+                                     {"message": message, "tree": tree["sha"], "parents": []})
+        if code != 201:
+            raise RuntimeError(f"create commit failed ({code}): {commit.get('message', '')}")
+        code, ref = self._request("PATCH", f"{r}/git/refs/heads/{self.branch}",
+                                  {"sha": commit["sha"], "force": True})
+        if code == 422 or code == 404:  # branch doesn't exist yet
+            code, ref = self._request("POST", f"{r}/git/refs",
+                                      {"ref": f"refs/heads/{self.branch}", "sha": commit["sha"]})
+        if code not in (200, 201):
+            raise RuntimeError(f"update branch failed ({code}): {ref.get('message', '')}")
+        return commit["sha"]
+
+
+def fetch_remote_history(repo: str) -> dict | None:
+    """Seed local history from the status branch so restock patterns carry over."""
+    try:
+        url = f"https://raw.githubusercontent.com/{repo}/status/history.json?t={int(time.time())}"
+        with urllib.request.urlopen(url, timeout=15) as resp:
+            data = json.loads(resp.read())
+            return data if isinstance(data.get("events"), list) else None
+    except Exception:
+        return None
+
+
+# --------------------------------------------------------------------------
+# Nag mode
+# --------------------------------------------------------------------------
+
+def in_stock_rows(status: dict) -> list[tuple[dict, dict]]:
+    return [(m, s) for m in status.get("models", []) for s in m.get("stores", []) if s.get("available")]
+
+
+class Nagger:
+    """Re-alerts every `minutes` while anything stays in stock, up to `max_count` times."""
+
+    def __init__(self, minutes: float, max_count: int):
+        self.interval = minutes * 60
+        self.max_count = max_count
+        self.last: float | None = None
+        self.count = 0
+
+    def update(self, now: float, status: dict, alerted: bool) -> list[tuple[dict, dict]] | None:
+        rows = in_stock_rows(status)
+        if not rows or status.get("error"):
+            if not rows:
+                self.last, self.count = None, 0
+            return None
+        if alerted or self.last is None:
+            self.last = now
+            return None
+        if self.interval > 0 and self.count < self.max_count and now - self.last >= self.interval:
+            self.last = now
+            self.count += 1
+            return rows
+        return None
+
+
+def nag_message(rows: list[tuple[dict, dict]]) -> tuple[str, str, str]:
+    m0, _ = rows[0]
+    lines = [f"{s['name']} ({s.get('distance', '')}): {m.get('color') or m['label']}" for m, s in rows[:6]]
+    lines.append("Still available. Tap to buy.")
+    return f"STILL IN STOCK: {m0.get('color') or m0['label']}", "\n".join(lines), m0.get("url") or cs.BUY_URL
+
+
+# --------------------------------------------------------------------------
+# Main loop
+# --------------------------------------------------------------------------
+
+def availability_signature(status: dict) -> tuple:
+    return (bool(status.get("error")), tuple(sorted(cs.available_set(status))))
+
+
+def summary(status: dict) -> str:
+    if status.get("error"):
+        return f"ERR {status['error'][:90]}"
+    parts = []
+    for m in status.get("models", []):
+        n = sum(s["available"] for s in m["stores"])
+        parts.append(f"{m.get('color') or m['label']}: {n}/{len(m['stores'])}")
+    return "OK   " + "  ·  ".join(parts)
+
+
+def save_json(path: str, data: dict) -> None:
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=1)
+    os.replace(tmp, path)
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description="Duo Watch PC runner")
+    ap.add_argument("--once", action="store_true", help="Run a single check and exit")
+    ap.add_argument("--no-publish", action="store_true", help="Don't push status to GitHub")
+    ap.add_argument("--test-alert", action="store_true", help="Send a test push and exit")
+    args = ap.parse_args(argv)
+
+    os.chdir(HERE)
+    base = cs.load_json("config.json", {})
+    local = cs.load_json("config.local.json", {})
+    config = merge_config(base, local)
+    env = {**load_env(".env.local"), **{k: v for k, v in os.environ.items() if k in ("GITHUB_TOKEN", "GITHUB_REPO")}}
+    settings = cs.load_settings(config)
+    poll = max(10, int(config["poll_seconds"]))
+    heartbeat = max(30, int(config["heartbeat_seconds"]))
+
+    if args.test_alert:
+        if not settings["topic"]:
+            print("No ntfy_topic in config.local.json"); return 1
+        cs.send_ntfy(settings["topic"], "Test: Duo Watch PC runner", "Alerts from your PC are working.",
+                     settings["server"], False, click=settings["models"][0]["url"] if settings["models"] else cs.BUY_URL,
+                     priority="high", tags="computer,white_check_mark")
+        print("Test alert sent."); return 0
+
+    publisher = None
+    repo = env.get("GITHUB_REPO", "")
+    if not args.no_publish and env.get("GITHUB_TOKEN") and repo:
+        publisher = GitHubPublisher(env["GITHUB_TOKEN"], repo)
+
+    print("Duo Watch PC runner")
+    print(f"  Config:   config.json + {'config.local.json' if local else '(no config.local.json!)'}")
+    print(f"  ZIP:      {mask(settings['zip'], 2)}   Radius: {settings['radius']} mi   Poll: every {poll}s")
+    print(f"  Alerts:   ntfy topic {mask(settings['topic'])}   Nag: every {config['nag_minutes']} min (max {config['nag_max']})")
+    print(f"  Publish:  {repo + ' (status branch, heartbeat ' + str(heartbeat) + 's)' if publisher else 'off'}")
+    print("-" * 64)
+    if not settings["zip"]:
+        print("Add your ZIP to config.local.json, e.g. {\"zip\": \"12345\", \"ntfy_topic\": \"...\"}")
+        return 1
+
+    prev = cs.load_json("prev_status.json", {})
+    history = cs.load_json("history.local.json", None)
+    if history is None:
+        history = (fetch_remote_history(repo) if repo else None) or {"events": []}
+
+    nagger = Nagger(float(config["nag_minutes"]), int(config["nag_max"]))
+    started = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    checks, errors_in_row, last_publish, last_sig = 0, 0, 0.0, None
+
+    try:
+        while True:
+            t0 = time.time()
+            status, history, alerts = cs.check_once(settings, prev, history, source="pc", log=lambda m: None)
+            checks += 1
+            status["poll_seconds"] = poll
+            status["runner"] = {"started_at": started, "checks": checks}
+
+            for title, _, _ in alerts:
+                print(f"[{time.strftime('%H:%M:%S')}] >>> ALERT SENT: {title}")
+            nag = nagger.update(t0, status, bool(alerts))
+            if nag and settings["topic"]:
+                title, msg, click = nag_message(nag)
+                try:
+                    cs.send_ntfy(settings["topic"], title, msg, settings["server"], False, click=click)
+                    print(f"[{time.strftime('%H:%M:%S')}] >>> NAG SENT: {title}")
+                except Exception as e:
+                    print(f"[{time.strftime('%H:%M:%S')}] nag push failed: {e}")
+
+            sig = availability_signature(status)
+            changed = sig != last_sig
+            note = ""
+            if publisher and (changed or t0 - last_publish >= heartbeat):
+                try:
+                    publisher.publish(
+                        {"status.json": json.dumps(status, indent=1), "history.json": json.dumps(history, indent=1)},
+                        f"status {status['checked_at']}",
+                    )
+                    last_publish, last_sig = t0, sig
+                    note = "  ↑ published"
+                except Exception as e:
+                    note = f"  ↑ publish failed: {e}"
+            elif not publisher:
+                last_sig = sig
+
+            print(f"[{time.strftime('%H:%M:%S')}] {summary(status)}{note}")
+            if not status.get("error"):
+                prev = status
+                errors_in_row = 0
+            else:
+                errors_in_row += 1
+            save_json("prev_status.json", prev if prev else status)
+            save_json("history.local.json", history)
+
+            if args.once:
+                return 0
+            wait = poll if not errors_in_row else min(MAX_BACKOFF, poll * 2 ** errors_in_row)
+            if errors_in_row:
+                print(f"           backing off {wait}s after {errors_in_row} error(s)")
+            time.sleep(max(1.0, wait + random.uniform(0, 3) - (time.time() - t0)))
+    except KeyboardInterrupt:
+        print("\nStopped. Alerts are off until you start it again (GitHub keeps checking every ~5 min).")
+        return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

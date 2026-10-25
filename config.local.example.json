@@ -1,0 +1,8 @@
+{
+  "zip": "YOUR_ZIP",
+  "ntfy_topic": "your-private-ntfy-topic",
+  "poll_seconds": 15,
+  "heartbeat_seconds": 120,
+  "nag_minutes": 2,
+  "nag_max": 15
+}

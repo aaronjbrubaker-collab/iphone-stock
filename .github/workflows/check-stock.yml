@@ -1,5 +1,7 @@
 name: Check iPhone stock
 
+# Backup checker. When the PC runner (local_runner.py) is live it publishes every
+# couple of minutes with source "pc", and this job skips itself to avoid double alerts.
 on:
   schedule:
     - cron: "*/5 * * * *"   # every 5 minutes (GitHub may delay scheduled runs at busy times)
@@ -37,11 +39,12 @@ jobs:
           APPLE_ZIP: ${{ secrets.APPLE_ZIP }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: >
-          python checker/check_stock.py --config config.json
+          python checker/check_stock.py --config config.json --source github --defer-to-pc 300
           --prev prev_status.json --out status.json
           --history-in prev_history.json --history-out history.json
 
       - name: Publish status to the status branch
+        if: hashFiles('status.json') != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

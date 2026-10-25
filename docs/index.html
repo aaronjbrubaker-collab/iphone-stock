@@ -49,9 +49,23 @@
   .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
   h1 { font-size: 28px; letter-spacing: -0.02em; margin: 4px 0 0; white-space: nowrap; }
   h1 span { color: var(--muted); font-weight: 600; }
-  .meta { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; white-space: nowrap; }
-  .live { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 4px var(--ok-soft); }
-  .live.stale { background: var(--bad); box-shadow: 0 0 0 4px rgba(255,107,107,.15); }
+  .meta { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .sync { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .sync-text { line-height: 1.25; min-width: 0; }
+  #source { color: var(--text); font-weight: 600; font-size: 13px; }
+  #age { font-size: 12px; font-variant-numeric: tabular-nums; }
+  .live { flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--faint); }
+  .live.ok { background: var(--ok); animation: pulse 2s ease-out infinite; }
+  .live.warn { background: var(--accent); }
+  .live.stale { background: var(--bad); }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(61,220,132,.55); } 100% { box-shadow: 0 0 0 9px rgba(61,220,132,0); } }
+  .icon-btn[disabled] { opacity: .6; }
+  .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: rot .7s linear infinite; vertical-align: -2px; margin-right: 6px; }
+  @keyframes rot { to { transform: rotate(360deg); } }
+  .ptr { height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12.5px; transition: height .15s; }
+  .toast { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); background: var(--card-2); color: var(--text); border: 1px solid var(--line); padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; opacity: 0; transition: .2s; pointer-events: none; z-index: 5; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  @media (prefers-reduced-motion: reduce) { .live.ok, .spin { animation: none; } }
   .icon-btn { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 7px 12px; font-size: 13px; font-weight: 600; }
 
   /* Tabs */
@@ -117,6 +131,7 @@
 </style>
 </head>
 <body data-tab="stock">
+<div class="ptr" id="ptr">Pull to refresh</div>
 <div class="wrap">
   <header class="top">
     <div>
@@ -124,8 +139,10 @@
       <h1>iPhone Duo <span>256GB</span></h1>
     </div>
     <div class="meta">
-      <span class="live" id="live"></span>
-      <span id="checked">Loading…</span>
+      <div class="sync">
+        <span class="live" id="live"></span>
+        <div class="sync-text"><div id="source">Connecting…</div><div id="age"></div></div>
+      </div>
       <button class="icon-btn" id="refresh" type="button">Refresh</button>
     </div>
   </header>
@@ -149,28 +166,65 @@
     <input id="topic" placeholder="your ntfy topic" autocomplete="off" autocapitalize="off" spellcheck="false">
     <button class="icon-btn" id="testPush" type="button">Send test push</button>
   </div>
-  <div class="note" id="pushNote">Saved on this device only. Real alerts come from the scheduled checker every ~5 minutes.</div>
+  <div class="note" id="pushNote">Saved on this device only. Real alerts come from your PC runner (or the GitHub backup).</div>
 </div>
+<div class="toast" id="toast"></div>
 
 <script>
   // ---------- data location ----------
-  function base() {
-    const qs = new URLSearchParams(location.search);
-    if (qs.get("src")) return qs.get("src").replace(/[^/]*$/, "");
+  // The status branch changes every couple of minutes. raw.githubusercontent.com caches
+  // branch names for ~5 min, so we first ask the GitHub API for the branch's current
+  // commit (conditional request: unchanged = free 304) and then fetch the files by that
+  // commit, which can never be stale.
+  const QS = new URLSearchParams(location.search);
+  const REPO = (() => {
+    if (QS.get("repo")) return QS.get("repo");
     const host = location.hostname;
     if (host.endsWith(".github.io")) {
-      const user = host.split(".")[0];
       const repo = location.pathname.split("/").filter(Boolean)[0];
-      if (repo) return `https://raw.githubusercontent.com/${user}/${repo}/status/`;
+      if (repo) return `${host.split(".")[0]}/${repo}`;
     }
-    return "./";
-  }
-  async function getJSON(name, fallback) {
+    return null;
+  })();
+  const LOCAL_BASE = QS.get("src") ? QS.get("src").replace(/[^/]*$/, "") : "./";
+  let lastSha = null, apiBackoffUntil = 0;
+
+  async function resolveSha() {
+    if (Date.now() < apiBackoffUntil) return null;
     try {
-      const r = await fetch(base() + name + "?t=" + Date.now(), { cache: "no-store" });
+      const r = await fetch(`https://api.github.com/repos/${REPO}/git/ref/heads/status`, { cache: "no-cache" });
+      if (r.status === 403 || r.status === 429) {           // rate limited: fall back for 10 min
+        apiBackoffUntil = Date.now() + 10 * 60 * 1000;
+        return null;
+      }
+      if (!r.ok) return null;
+      return (await r.json()).object.sha;
+    } catch { return null; }
+  }
+  async function fetchJSON(url, fallback) {
+    try {
+      const r = await fetch(url, { cache: "no-store" });
       if (!r.ok) throw new Error("HTTP " + r.status);
       return await r.json();
     } catch (e) { if (fallback !== undefined) return fallback; throw e; }
+  }
+  // Returns {status, history, changed} or throws.
+  async function fetchData() {
+    if (!REPO) {
+      const t = "?t=" + Date.now();
+      return { status: await fetchJSON(LOCAL_BASE + "status.json" + t),
+               history: await fetchJSON(LOCAL_BASE + "history.json" + t, { events: [] }), changed: true };
+    }
+    const sha = await resolveSha();
+    if (sha && sha === lastSha && STATUS) return { status: STATUS, history: HISTORY, changed: false };
+    const root = `https://raw.githubusercontent.com/${REPO}/${sha || "status"}/`;
+    const bust = sha ? "" : "?t=" + Date.now();
+    const [status, history] = await Promise.all([
+      fetchJSON(root + "status.json" + bust), fetchJSON(root + "history.json" + bust, { events: [] }),
+    ]);
+    const changed = !STATUS || status.checked_at !== STATUS.checked_at;
+    if (sha) lastSha = sha;
+    return { status, history, changed };
   }
 
   // ---------- helpers ----------
@@ -294,23 +348,59 @@
       </div>`;
   }
 
+  function secondsAgo(iso) { return Math.max(0, Math.round((Date.now() - new Date(iso)) / 1000)); }
+  function ago(sec) {
+    if (sec < 60) return `${sec}s ago`;
+    if (sec < 3600) return `${Math.floor(sec / 60)}m ${String(sec % 60).padStart(2, "0")}s ago`;
+    return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m ago`;
+  }
+  // PC runner publishes at least every ~2 min; GitHub backup every ~5-15 min.
   function renderHeader() {
-    const age = (Date.now() - new Date(STATUS.checked_at)) / 60000;
-    $("checked").textContent = `checked ${tm(STATUS.checked_at)}`;
-    $("live").className = "live" + (age > 30 || STATUS.error ? " stale" : "");
+    if (!STATUS) return;
+    const sec = secondsAgo(STATUS.checked_at);
+    const src = STATUS.source || "pc";            // older PC runner builds don't label their data
+    const pc = src !== "github";
+    const okWindow = pc ? 300 : 1200, warnWindow = pc ? 900 : 2400;
+    let cls = sec <= okWindow ? "ok" : sec <= warnWindow ? "warn" : "stale";
+    if (STATUS.error) cls = "warn";
+    $("live").className = "live " + cls;
+    $("source").textContent = pc
+      ? (cls === "ok" ? `Live · your PC checks every ${STATUS.poll_seconds || 15}s` : "PC runner looks offline · backup takes over")
+      : (cls === "ok" ? "GitHub backup · every ~5 min" : "Checker looks paused");
+    $("age").textContent = STATUS.error ? `last check failed · ${ago(sec)}` : `updated ${ago(sec)}`;
     if (STATUS.radius_miles) $("eyebrow").textContent = `Apple Stores · ${STATUS.radius_miles} mi · unlocked`;
   }
 
-  async function load() {
+  function toast(msg) {
+    const t = $("toast"); t.textContent = msg; t.classList.add("show");
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 1600);
+  }
+
+  let loading = false;
+  async function load(manual = false) {
+    if (loading) return;
+    loading = true;
+    const btn = $("refresh");
+    if (manual) { btn.disabled = true; btn.innerHTML = `<span class="spin"></span>Refreshing`; }
     try {
-      [STATUS, HISTORY] = await Promise.all([getJSON("status.json"), getJSON("history.json", { events: [] })]);
-      const stores = storesFrom(STATUS);
-      renderHeader(); renderBanner(stores); renderStock(stores); renderChanges(); renderPatterns();
-      const hot = stores.some((s) => s.any);
-      document.title = hot ? "IN STOCK · Duo Watch" : "Duo Watch";
+      const { status, history, changed } = await fetchData();
+      STATUS = status; HISTORY = history || { events: [] };
+      renderHeader();
+      if (changed || manual) {
+        const stores = storesFrom(STATUS);
+        renderBanner(stores); renderStock(stores); renderChanges(); renderPatterns();
+        document.title = stores.some((s) => s.any) ? "IN STOCK · Duo Watch" : "Duo Watch";
+      }
+      if (manual) toast(changed ? "Updated" : "Up to date");
     } catch (e) {
-      $("checked").textContent = "couldn't load";
-      $("banner").innerHTML = `<div class="banner err"><div><b>No status yet</b><small>${esc(e.message)} · run the workflow once from the GitHub Actions tab.</small></div></div>`;
+      if (!STATUS) {
+        $("source").textContent = "Couldn't load";
+        $("banner").innerHTML = `<div class="banner err"><div><b>No status yet</b><small>${esc(e.message)} · start the PC runner or run the GitHub workflow once.</small></div></div>`;
+      }
+      if (manual) toast("Offline · try again");
+    } finally {
+      loading = false;
+      if (manual) { btn.disabled = false; btn.textContent = "Refresh"; }
     }
   }
 
@@ -338,9 +428,30 @@
     } catch (e) { $("pushNote").textContent = "Couldn't reach ntfy: " + e.message; }
   });
 
-  $("refresh").addEventListener("click", load);
+  $("refresh").addEventListener("click", () => load(true));
   document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
-  setInterval(load, 60000);
+  window.addEventListener("pageshow", () => load());
+  window.addEventListener("online", () => load());
+  setInterval(() => { if (!document.hidden) load(); }, 20000);   // sync every 20s while open
+  setInterval(renderHeader, 1000);                                // live "updated Xs ago"
+
+  // ---------- pull to refresh (home-screen app has no browser reload) ----------
+  (() => {
+    let y0 = null, pulled = 0;
+    const ptr = $("ptr");
+    addEventListener("touchstart", (e) => { y0 = scrollY <= 0 ? e.touches[0].clientY : null; pulled = 0; }, { passive: true });
+    addEventListener("touchmove", (e) => {
+      if (y0 === null) return;
+      pulled = Math.max(0, e.touches[0].clientY - y0);
+      ptr.style.height = Math.min(56, pulled / 2.2) + "px";
+      ptr.textContent = pulled > 110 ? "Release to refresh" : "Pull to refresh";
+    }, { passive: true });
+    addEventListener("touchend", () => {
+      if (y0 !== null && pulled > 110) load(true);
+      y0 = null; pulled = 0; ptr.style.height = "0px";
+    });
+  })();
+
   load();
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>

@@ -1,0 +1,164 @@
+"""Offline tests for local_runner.py and the PC/GitHub handoff."""
+
+import json
+import os
+import sys
+import tempfile
+import unittest
+from datetime import datetime, timedelta, timezone
+
+ROOT = os.path.join(os.path.dirname(__file__), "..")
+sys.path.insert(0, ROOT)
+sys.path.insert(0, os.path.join(ROOT, "checker"))
+import check_stock as cs  # noqa: E402
+import local_runner as lr  # noqa: E402
+
+BASE = {
+    "radius_miles": 25, "max_stores": 12,
+    "models": [
+        {"label": "Duo Night Sky", "color": "Night Sky", "part": "A1/A", "url": "https://x/night"},
+        {"label": "Duo Star White", "color": "Star White", "part": "B2/A", "url": "https://x/white"},
+    ],
+}
+
+
+def status_with(avail_parts=(), error=None):
+    return {
+        "error": error,
+        "models": [
+            {"part": m["part"], "label": m["label"], "color": m["color"], "url": m["url"],
+             "stores": [{"id": "R1", "name": "Menlo Park", "distance": "4 mi",
+                         "available": m["part"] in avail_parts}]}
+            for m in BASE["models"]
+        ],
+    }
+
+
+class ConfigTests(unittest.TestCase):
+    def test_local_overrides_and_defaults(self):
+        cfg = lr.merge_config(BASE, {"zip": "12345", "ntfy_topic": "t", "poll_seconds": 20})
+        self.assertEqual(cfg["zip"], "12345")
+        self.assertEqual(cfg["poll_seconds"], 20)
+        self.assertEqual(cfg["heartbeat_seconds"], 120)
+        self.assertEqual(len(cfg["models"]), 2)
+
+    def test_local_models_keep_repo_urls(self):
+        cfg = lr.merge_config(BASE, {"models": [{"label": "Mine", "part": "A1/A"}]})
+        self.assertEqual(cfg["models"], [{"label": "Mine", "color": "Night Sky", "part": "A1/A", "url": "https://x/night"}])
+
+    def test_env_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = os.path.join(tmp, ".env.local")
+            with open(p, "w") as f:
+                f.write("# comment\nGITHUB_TOKEN=abc123\nGITHUB_REPO='me/repo'\n")
+            self.assertEqual(lr.load_env(p), {"GITHUB_TOKEN": "abc123", "GITHUB_REPO": "me/repo"})
+
+    def test_mask_hides_secret(self):
+        self.assertNotIn("secret-topic-name", lr.mask("secret-topic-name"))
+
+
+class NagTests(unittest.TestCase):
+    def test_nags_on_interval_until_sold_out(self):
+        n = lr.Nagger(minutes=2, max_count=3)
+        hot = status_with({"A1/A"})
+        self.assertIsNone(n.update(0, hot, alerted=True))      # first alert already sent
+        self.assertIsNone(n.update(60, hot, alerted=False))    # too soon
+        self.assertTrue(n.update(121, hot, alerted=False))     # nag 1
+        self.assertIsNone(n.update(150, hot, alerted=False))
+        self.assertTrue(n.update(242, hot, alerted=False))     # nag 2
+        self.assertIsNone(n.update(300, status_with(), alerted=False))  # sold out resets
+        self.assertIsNone(n.update(500, hot, alerted=True))
+
+    def test_respects_max(self):
+        n = lr.Nagger(minutes=1, max_count=1)
+        hot = status_with({"B2/A"})
+        n.update(0, hot, alerted=True)
+        self.assertTrue(n.update(61, hot, False))
+        self.assertIsNone(n.update(200, hot, False))
+
+    def test_disabled(self):
+        n = lr.Nagger(minutes=0, max_count=5)
+        hot = status_with({"A1/A"})
+        n.update(0, hot, True)
+        self.assertIsNone(n.update(999, hot, False))
+
+    def test_nag_message_links_to_color(self):
+        title, msg, click = lr.nag_message(lr.in_stock_rows(status_with({"B2/A"})))
+        self.assertIn("Star White", title)
+        self.assertEqual(click, "https://x/white")
+        self.assertIn("Menlo Park", msg)
+
+
+class PublisherTests(unittest.TestCase):
+    def test_publish_sequence(self):
+        calls = []
+
+        def fake(method, path, body=None):
+            calls.append((method, path, body))
+            if path.endswith("/git/trees"):
+                return 201, {"sha": "tree1"}
+            if path.endswith("/git/commits"):
+                return 201, {"sha": "commit1"}
+            return 200, {"ref": "refs/heads/status"}
+
+        sha = lr.GitHubPublisher("tok", "me/repo", request=fake).publish({"status.json": "{}"}, "msg")
+        self.assertEqual(sha, "commit1")
+        self.assertEqual([c[0] for c in calls], ["POST", "POST", "PATCH"])
+        self.assertEqual(calls[1][2]["parents"], [])
+        self.assertTrue(calls[2][2]["force"])
+
+    def test_creates_branch_if_missing(self):
+        def fake(method, path, body=None):
+            if path.endswith("/git/trees"):
+                return 201, {"sha": "t"}
+            if path.endswith("/git/commits"):
+                return 201, {"sha": "c"}
+            if method == "PATCH":
+                return 422, {"message": "Reference does not exist"}
+            return 201, {}
+        self.assertEqual(lr.GitHubPublisher("tok", "me/repo", request=fake).publish({"a": "b"}, "m"), "c")
+
+    def test_raises_on_auth_failure(self):
+        pub = lr.GitHubPublisher("bad", "me/repo", request=lambda *a, **k: (401, {"message": "Bad credentials"}))
+        with self.assertRaises(RuntimeError):
+            pub.publish({"a": "b"}, "m")
+
+
+class HandoffTests(unittest.TestCase):
+    def run_checker(self, prev):
+        with tempfile.TemporaryDirectory() as tmp:
+            prev_p, out = os.path.join(tmp, "prev.json"), os.path.join(tmp, "status.json")
+            cfg = os.path.join(tmp, "config.json")
+            with open(prev_p, "w") as f:
+                json.dump(prev, f)
+            with open(cfg, "w") as f:
+                json.dump(BASE, f)
+            fx = os.path.join(ROOT, "tests", "fixtures", "live_sample_nyc.json")
+            cs.main(["--config", cfg, "--prev", prev_p, "--out", out, "--fixture", fx,
+                     "--defer-to-pc", "180", "--source", "github"])
+            return os.path.exists(out)
+
+    def test_github_skips_while_pc_is_live(self):
+        fresh = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        self.assertFalse(self.run_checker({"source": "pc", "checked_at": fresh}))
+
+    def test_github_runs_when_pc_is_stale(self):
+        old = (datetime.now(timezone.utc) - timedelta(minutes=10)).isoformat(timespec="seconds")
+        self.assertTrue(self.run_checker({"source": "pc", "checked_at": old}))
+
+    def test_github_runs_after_its_own_check(self):
+        fresh = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        self.assertTrue(self.run_checker({"source": "github", "checked_at": fresh}))
+
+    def test_seconds_since_handles_z_suffix(self):
+        self.assertLess(cs.seconds_since(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")), 5)
+
+
+class SignatureTests(unittest.TestCase):
+    def test_signature_changes_with_stock(self):
+        self.assertNotEqual(lr.availability_signature(status_with()), lr.availability_signature(status_with({"A1/A"})))
+        self.assertEqual(lr.availability_signature(status_with()), lr.availability_signature(status_with()))
+
+
+if __name__ == "__main__":
+    unittest.main()

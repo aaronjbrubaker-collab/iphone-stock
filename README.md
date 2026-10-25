@@ -65,6 +65,27 @@ Your dashboard will be at `https://<your-username>.github.io/<repo-name>/`.
 After it finishes (~30 s), open the dashboard on your phone and use
 **Share → Add to Home Screen**. From then on it runs every 5 minutes on its own.
 
+## Fastest mode: run it on your PC (recommended)
+GitHub's schedule is a backup that often runs late. `local_runner.py` checks every 15 s
+from your own computer, pushes alerts instantly, re-alerts every 2 min while it's still in
+stock ("nag mode"), and keeps the phone app live. GitHub automatically stands down while
+your PC is running and takes over if the PC goes offline.
+
+1. **Get the latest code** into your folder (e.g. `Documents\iphone-stock`). If the folder
+   is a git clone: rename any old `local_runner.py` to `local_runner_grok.py`, then `git pull`.
+   Otherwise download the repo ZIP and copy your two private files into it.
+2. **Private files** next to `local_runner.py` (both are gitignored; never commit them):
+   - `config.local.json`: see `config.local.example.json` (ZIP, ntfy topic, optional tuning)
+   - `.env.local`: `GITHUB_TOKEN=...` and `GITHUB_REPO=hasskhalid/iphone-stock`.
+     Use a **fine-grained token** limited to this one repo with *Contents: Read and write*.
+3. **Start it:** double-click `start-runner.bat` (it restarts itself if anything crashes).
+   Test alerts: `python local_runner.py --test-alert`.
+4. **Start with Windows:** press Win+R, type `shell:startup`, and put a shortcut to
+   `start-runner.bat` in that folder.
+5. **Keep the PC awake:** Settings → System → Power → Sleep: *Never* (screen can turn off).
+
+The app header shows **"Live · your PC checks every 15s"** with a green dot while it's running.
+
 ## Test your alerts
 - **Actions → Send test alert → Run workflow** sends a test push through the same path
   real alerts use (GitHub → ntfy → your phone).
