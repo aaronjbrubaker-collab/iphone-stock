@@ -168,6 +168,26 @@
   .fresh .wrow::after, .fresh .store::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
     background: linear-gradient(100deg, transparent 20%, rgba(201,184,255,.14) 50%, transparent 80%); background-size: 250% 100%; animation: shimmer 1.1s ease-out 1; }
   @keyframes shimmer { from { background-position: 150% 0; } to { background-position: -100% 0; } }
+  /* Snappy, GPU-friendly motion (transform/opacity only) */
+  button, .mini, .cta, .wrow, .stat { transition: transform .12s ease, background-color .2s ease, border-color .2s ease; }
+  button:active, .mini:active, .cta:active { transform: scale(.95); }
+  .wrow:active { transform: scale(.99); }
+  .tabs { position: relative; }
+  .tab { border-bottom-color: transparent !important; transition: color .2s ease; }
+  .tab-ink { position: absolute; bottom: -1px; height: 3px; border-radius: 3px; background: linear-gradient(90deg, var(--lilac), var(--accent)); transition: transform .25s cubic-bezier(.3,.9,.3,1.1), width .25s ease; will-change: transform; }
+  section.enter { animation: tabIn .18s ease-out; }
+  @keyframes tabIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .intro .wrow, .intro .store, .intro .stat { animation: rise .35s cubic-bezier(.2,.9,.3,1.2) both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+  .stat b.pop { animation: pop .45s cubic-bezier(.3,1.8,.5,1); display: inline-block; }
+  @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+  .rbtn span { display: inline-block; transition: transform .5s cubic-bezier(.3,1.4,.5,1); }
+  .rbtn:hover span { transform: rotate(90deg); }
+  .twirl .rbtn span { animation: rot .6s cubic-bezier(.4,1.6,.5,1) 1; }
+  body.scanning .rbtn span { animation: rot 1.1s linear infinite; }
+  .banner.hot { animation: breathe 1.6s ease-in-out infinite; }
+  @keyframes breathe { 0%,100% { box-shadow: 0 0 0 0 rgba(92,242,163,.0); } 50% { box-shadow: 0 0 24px 2px rgba(92,242,163,.28); } }
+  @media (prefers-reduced-motion: reduce) { section.enter, .intro *, .stat b.pop, .twirl .rbtn span, body.scanning .rbtn span, .banner.hot { animation: none !important; } }
   /* Per-store refresh button */
   .rbtn { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: var(--card-2); color: var(--muted); font-size: 15px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
   .rbtn:active { transform: scale(.92); }
@@ -277,7 +297,8 @@
     </div>
   </header>
 
-  <nav class="tabs" role="tablist">
+  <nav class="tabs" role="tablist" id="tabs">
+    <span class="tab-ink" id="tabInk"></span>
     <button class="tab" role="tab" data-tab="stock" aria-selected="true">Stock</button>
     <button class="tab" role="tab" data-tab="changes" aria-selected="false">Recent changes</button>
     <button class="tab" role="tab" data-tab="patterns" aria-selected="false">Patterns &amp; news</button>
@@ -473,18 +494,23 @@
   function renderStats(stores) {
     const hot = stores.filter((s) => s.any).length;
     const r = restocks(), last = r[r.length - 1];
+    const sig = `${hot}|${last ? last.t : ""}|${r.length}`, changedStats = lastStats && sig !== lastStats;
+    lastStats = sig;
     $("stats").innerHTML = `
       <div class="stat ${hot ? "hot" : ""}"><small>In stock</small><b>${hot} / ${stores.length}</b></div>
       <div class="stat"><small>Last seen</small><b>${last ? esc(shortAgo(last.t)) : "—"}</b></div>
       <div class="stat"><small>Restocks</small><b>${r.length}</b></div>`;
     document.body.classList.toggle("instock", hot > 0);
+    if (changedStats) $("stats").querySelectorAll("b").forEach((b) => b.classList.add("pop"));
   }
+  let rowIdx = 0;
   function watchRow(s) {
+    const delay = `style="animation-delay:${Math.min(rowIdx++, 12) * 28}ms"`;
     const lr = lastRestock(s.id);
     const sub = esc([s.distance, s.city].filter(Boolean).join(" · ")) + (lr ? `<br><em>✨ restocked ${esc(shortAgo(lr.t))}</em>` : "");
     const buy = (s.colors[0] && s.colors[0].url) || "https://www.apple.com/shop/buy-iphone";
     return `
-      <div class="wrow">
+      <div class="wrow" ${delay}>
         <a class="wmain" href="${esc(buy)}" target="_blank" rel="noopener"><b>${esc(s.name)}</b><small>${sub}</small></a>
         <div class="minis">${s.colors.map((c) => `<a class="mini" href="${esc(c.url)}" target="_blank" rel="noopener"><i class="${swatchClass(c.color)}"></i><span>${esc(c.color)}</span></a>`).join("")}
           ${s.maps_url ? `<a class="mini pin" href="${esc(s.maps_url)}" target="_blank" rel="noopener" aria-label="Directions">📍</a>` : ""}
@@ -496,11 +522,14 @@
   function renderStock(stores) {
     if (!stores.length) { $("grid").innerHTML = `<div class="empty">No stores within range yet. Start the PC runner or run the GitHub workflow once.</div>`; return; }
     const hot = stores.filter((s) => s.any), rest = stores.filter((s) => !s.any);
+    rowIdx = 0;
     renderStats(stores);
     const isFresh = lastRenderedCheck && STATUS.checked_at !== lastRenderedCheck;
     lastRenderedCheck = STATUS.checked_at;
-    $("grid").className = isFresh ? "fresh" : "";
-    if (isFresh) setTimeout(() => $("grid").classList.remove("fresh"), 1300);
+    const first = !introDone; introDone = true;
+    $("grid").className = (isFresh ? "fresh twirl " : "") + (first ? "intro" : "");
+    if (isFresh) setTimeout(() => $("grid").classList.remove("fresh", "twirl"), 1300);
+    if (first) setTimeout(() => $("grid").classList.remove("intro"), 900);
     $("grid").innerHTML =
       (DEMO ? `<div class="demo-flag">Preview only · fake restock to show what an in-stock moment looks like · <a href="./">exit</a></div>` : "") +
       (hot.length ? `<div class="sec hot"><h2>In stock now · ${hot.length}</h2><span>nearest first</span></div>
@@ -578,7 +607,7 @@
     return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m ago`;
   }
   // PC runner publishes at least every ~2 min; GitHub backup every ~5-15 min.
-  let lastMood = "", lastRenderedCheck = null, spinningStore = null;
+  let lastMood = "", lastRenderedCheck = null, spinningStore = null, introDone = false, lastStats = "";
   function renderScan() {
     if (!STATUS) return;
     const sec = secondsAgo(STATUS.checked_at);
@@ -587,6 +616,7 @@
     const left = Math.max(0, period - sec);
     const bar = $("scan");
     bar.classList.toggle("due", checkingSince > 0 || left === 0);
+    document.body.classList.toggle("scanning", checkingSince > 0 || left === 0);
     $("scanFill").style.width = Math.min(100, (sec / period) * 100) + "%";
     $("scanLeft").textContent = checkingSince ? "🔍 Checking Apple now…"
       : left > 0 ? `${live ? "🖥️ PC" : "☁️ Backup"} checks again in ~${left}s` : "🔍 Checking any second…";
@@ -748,11 +778,24 @@
   });
 
   // ---------- tabs ----------
+  function moveInk() {
+    const t = document.querySelector('.tab[aria-selected="true"]'), ink = $("tabInk");
+    if (!t || !ink) return;
+    ink.style.width = t.offsetWidth + "px";
+    ink.style.transform = `translateX(${t.offsetLeft}px)`;
+  }
   document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
     document.querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", String(x === t)));
-    ["stock", "changes", "patterns"].forEach((n) => $("tab-" + n).hidden = n !== t.dataset.tab);
+    ["stock", "changes", "patterns"].forEach((n) => {
+      const sec = $("tab-" + n), show = n === t.dataset.tab;
+      sec.hidden = !show;
+      if (show) { sec.classList.remove("enter"); void sec.offsetWidth; sec.classList.add("enter"); }
+    });
     document.body.dataset.tab = t.dataset.tab;
+    moveInk();
   }));
+  addEventListener("resize", moveInk);
+  requestAnimationFrame(moveInk);
 
   // ---------- test push ----------
   $("ghToken").value = store.get("ghToken") || "";
