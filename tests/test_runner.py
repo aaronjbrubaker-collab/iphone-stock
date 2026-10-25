@@ -158,6 +158,30 @@ class HandoffTests(unittest.TestCase):
         fresh = datetime.now(timezone.utc).isoformat(timespec="seconds")
         self.assertTrue(self.run_checker({"source": "github", "checked_at": fresh}))
 
+    def test_watchdog_warns_once_when_pc_goes_silent(self):
+        sent = []
+        orig = cs.send_ntfy
+        cs.send_ntfy = lambda topic, title, *a, **k: sent.append(title)
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                old = (datetime.now(timezone.utc) - timedelta(minutes=20)).isoformat(timespec="seconds")
+                prev_p, out, cfg = (os.path.join(tmp, n) for n in ("prev.json", "status.json", "config.json"))
+                with open(prev_p, "w") as f:
+                    json.dump({"source": "pc", "checked_at": old}, f)
+                with open(cfg, "w") as f:
+                    json.dump(dict(BASE, ntfy_topic="t"), f)
+                fx = os.path.join(ROOT, "tests", "fixtures", "live_sample_nyc.json")
+                args = ["--config", cfg, "--prev", prev_p, "--out", out, "--fixture", fx, "--source", "github", "--defer-to-pc", "300"]
+                cs.main(args)
+                self.assertTrue(any("stopped checking" in t for t in sent))
+                # next run: last publisher is now github -> no repeat warning
+                os.replace(out, prev_p)
+                sent.clear()
+                cs.main(args)
+                self.assertFalse(any("stopped checking" in t for t in sent))
+        finally:
+            cs.send_ntfy = orig
+
     def test_seconds_since_handles_z_suffix(self):
         self.assertLess(cs.seconds_since(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")), 5)
 

@@ -39,6 +39,7 @@ APPLE_URL = "https://www.apple.com/shop/retail/pickup-message"
 BUY_URL = "https://www.apple.com/shop/buy-iphone"
 BAG_URL = "https://www.apple.com/shop/bag"
 HISTORY_LIMIT = 500
+PC_OFFLINE_SECONDS = 900   # backup warns once if the PC runner has been silent this long
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
@@ -405,6 +406,22 @@ def main(argv: list[str] | None = None) -> int:
         if age is not None and age < args.defer_to_pc:
             print(f"PC runner is live (last check {int(age)}s ago); skipping this backup check.")
             return 0
+
+    # Watchdog: the backup only gets here when the PC runner isn't live. If the PC was the
+    # last publisher and has been silent 15+ min, warn once (after this run publishes,
+    # the last publisher is "github", so the next run won't repeat the warning).
+    if args.source == "github" and prev.get("source") == "pc" and settings["topic"]:
+        age = seconds_since(prev.get("checked_at"))
+        if age is not None and age > PC_OFFLINE_SECONDS:
+            try:
+                send_ntfy(settings["topic"], "Duo Watch: your PC stopped checking",
+                          f"No check from your PC for {int(age // 60)} min (restart, sleep or crash?). "
+                          "The GitHub backup is checking every ~5 min until it's back.",
+                          settings["server"], args.dry_run, click=settings["models"][0]["url"] if settings["models"] else BUY_URL,
+                          priority="high", tags="warning,computer")
+                print(f"Watchdog: PC silent {int(age)}s, warning sent.")
+            except Exception as e:
+                print(f"WARN: watchdog push failed: {e}", file=sys.stderr)
 
     history = load_json(args.history_in, {"events": []})
     status, history, _ = check_once(settings, prev, history, source=args.source,

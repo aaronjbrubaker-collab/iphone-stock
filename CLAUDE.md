@@ -27,7 +27,12 @@ home-screen dashboard. Keep it free to run and dependency-light.
   skip (and not publish) while the PC runner's status (`source: "pc"`) is < 5 min old and not erroring. Reads the previous status
   from the `status` branch, runs the checker, force-pushes a single-commit `status`
   branch containing `status.json` + `history.json` (keeps main history clean).
-- `.github/workflows/test-alert.yml`: manual "Send test alert" workflow.
+- `.github/workflows/test-alert.yml`: "Send test alert" sends a DRILL restock alert via
+  `check_stock.py --drill` (real alert builder, NTFY_TOPIC secret). Dispatchable from the app.
+- Watchdog: when the backup runs and the last publisher was the PC (`source: "pc"`) silent
+  > `PC_OFFLINE_SECONDS` (900), it pushes "your PC stopped checking" once per outage.
+  GitHub's own cron has not fired reliably on this repo; an external cron (cron-job.org)
+  POSTs workflow_dispatch for check-stock.yml every 5 min.
 - `docs/`: static PWA "Duo Watch" served by GitHub Pages from `main:/docs`. Tabs:
   Stock (in-stock stores pinned on top as big cards with Buy buttons; the rest as a compact
   nearest-first list, so a store drops back to its usual spot when it sells out; `?demo=1`
@@ -44,7 +49,9 @@ home-screen dashboard. Keep it free to run and dependency-light.
   Optional GitHub token box (fine-grained, Actions read/write, localStorage only): when
   data isn't live (error, GitHub-sourced, or > 5 min old) Refresh becomes "Check now" and
   dispatches check-stock.yml, then syncs every 8s until the fresh check lands.
-  Patterns tab links out to other trackers (Manzana, Apple Inventory Check, iPhone Stock
+  Stats strip (in stock / last seen / restocks), per-store "restocked Xm ago" from history,
+  green page glow while anything is in stock. Patterns tab has a dated "What we know from
+  the web" card (manually written summary with source links) and links out to other trackers (Manzana, Apple Inventory Check, iPhone Stock
   Checker); their data is not scraped or imported.
 - `config.json`: models (`label`, `color`, `part`, `url`), `zip`, `radius_miles`, `max_stores`,
   optional `ntfy_topic`. Env vars `APPLE_ZIP` / `NTFY_TOPIC` (repo secrets) override.
