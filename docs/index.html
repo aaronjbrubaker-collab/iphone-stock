@@ -63,7 +63,7 @@
   .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: rot .7s linear infinite; vertical-align: -2px; margin-right: 6px; }
   @keyframes rot { to { transform: rotate(360deg); } }
   .ptr { height: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12.5px; transition: height .15s; }
-  .toast { position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); background: var(--card-2); color: var(--text); border: 1px solid var(--line); padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; opacity: 0; transition: .2s; pointer-events: none; z-index: 5; }
+  .toast { max-width: calc(100vw - 32px); white-space: normal; text-align: center; position: fixed; left: 50%; bottom: max(18px, env(safe-area-inset-bottom)); transform: translateX(-50%) translateY(20px); background: var(--card-2); color: var(--text); border: 1px solid var(--line); padding: 8px 14px; border-radius: 999px; font-size: 13px; font-weight: 600; opacity: 0; transition: .2s; pointer-events: none; z-index: 5; }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
   @media (prefers-reduced-motion: reduce) { .live.ok, .spin { animation: none; } }
   .icon-btn { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 7px 12px; font-size: 13px; font-weight: 600; }
@@ -167,6 +167,12 @@
     <button class="icon-btn" id="testPush" type="button">Send test push</button>
   </div>
   <div class="note" id="pushNote">Saved on this device only. Real alerts come from your PC runner (or the GitHub backup).</div>
+  <div class="alerts">
+    <span>GitHub token</span>
+    <input id="ghToken" type="password" placeholder="optional · lets Refresh run a fresh check" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button class="icon-btn" id="saveToken" type="button">Save</button>
+  </div>
+  <div class="note" id="tokenNote">When your PC's data is old, Refresh asks GitHub to check Apple right now (about a minute). Use a fine-grained token for this repo only with <b>Actions: Read and write</b>. Stored on this device only.</div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -192,7 +198,9 @@
   async function resolveSha() {
     if (Date.now() < apiBackoffUntil) return null;
     try {
-      const r = await fetch(`https://api.github.com/repos/${REPO}/git/ref/heads/status`, { cache: "no-cache" });
+      const tok = store.get("ghToken");
+      const r = await fetch(`https://api.github.com/repos/${REPO}/git/ref/heads/status`,
+        { cache: "no-cache", headers: tok ? { Authorization: `Bearer ${tok}` } : {} });
       if (r.status === 403 || r.status === 429) {           // rate limited: fall back for 10 min
         apiBackoffUntil = Date.now() + 10 * 60 * 1000;
         return null;
@@ -323,10 +331,18 @@
       : `<div class="empty">No restocks seen yet. Every restock and sell-out at these stores will be logged here.</div>`;
   }
 
+  const OTHER_TRACKERS = `
+      <h2>History from other trackers</h2>
+      <div class="panel">
+        <a class="row" href="https://manzanatracker.com/stock/iphone-duo" target="_blank" rel="noopener"><div><b>Manzana Tracker</b><br><span class="when">Restock history and typical restock times since launch</span></div><span class="tag out">Open ↗</span></a>
+        <a class="row" href="https://appleinventorycheck.com/iphone-duo/usa" target="_blank" rel="noopener"><div><b>Apple Inventory Check</b><br><span class="when">Store-by-store activity for the last 7 days</span></div><span class="tag out">Open ↗</span></a>
+        <a class="row" href="https://iphonestockchecker.com" target="_blank" rel="noopener"><div><b>iPhone Stock Checker</b><br><span class="when">Recent changes and Patterns tabs per store</span></div><span class="tag out">Open ↗</span></a>
+      </div>`;
+
   function renderPatterns() {
     const r = restocks();
     if (!r.length) {
-      $("patterns").innerHTML = `<div class="panel"><div class="empty">Patterns build up as restocks happen: which stores restock most and what time of day.</div></div>`;
+      $("patterns").innerHTML = `<div class="panel"><div class="empty">Your own patterns build up as restocks happen: which stores restock most and what time of day.</div></div>${OTHER_TRACKERS}`;
       return;
     }
     const hours = new Array(24).fill(0);
@@ -345,7 +361,7 @@
       <div class="panel">${rows.map(([name, ev]) => `
         <div class="row"><div><b>${esc(name)}</b><br><span style="color:var(--muted);font-size:12.5px">usually around ${hourLabel(typicalHour(ev))} · last ${esc(when(ev[ev.length - 1].t))}</span></div>
         <span class="tag in">${ev.length} restock${ev.length > 1 ? "s" : ""}</span></div>`).join("")}
-      </div>`;
+      </div>${OTHER_TRACKERS}`;
   }
 
   function secondsAgo(iso) { return Math.max(0, Math.round((Date.now() - new Date(iso)) / 1000)); }
@@ -373,7 +389,40 @@
 
   function toast(msg) {
     const t = $("toast"); t.textContent = msg; t.classList.add("show");
-    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 1600);
+    clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), msg.length > 30 ? 3200 : 1600);
+  }
+
+  // Data counts as "live" if the PC runner published a healthy check in the last 5 min
+  // (matches the backup workflow's --defer-to-pc 300, so a dispatch would actually run).
+  function isLive() {
+    return STATUS && !STATUS.error && STATUS.source !== "github" && secondsAgo(STATUS.checked_at) <= 300;
+  }
+  function updateRefreshLabel() {
+    const btn = $("refresh");
+    if (!btn.disabled) btn.textContent = (!isLive() && store.get("ghToken") && REPO) ? "Check now" : "Refresh";
+  }
+  let lastDispatch = 0, watchTimer = null;
+  async function dispatchCheck() {
+    const tok = store.get("ghToken");
+    if (!tok || !REPO) return "no-token";
+    if (Date.now() - lastDispatch < 120000) return "recent";
+    const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/check-stock.yml/dispatches`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${tok}`, Accept: "application/vnd.github+json" },
+      body: JSON.stringify({ ref: "main" }),
+    });
+    if (r.status === 204) { lastDispatch = Date.now(); return "ok"; }
+    return r.status === 401 || r.status === 403 || r.status === 404 ? "bad-token" : "error";
+  }
+  // After a dispatch, sync every 8s (up to ~3 min) until the fresh check lands.
+  function watchForFresh(before) {
+    clearInterval(watchTimer);
+    const started = Date.now();
+    watchTimer = setInterval(async () => {
+      await load();
+      if (STATUS && STATUS.checked_at !== before) { clearInterval(watchTimer); toast("Fresh check done"); }
+      else if (Date.now() - started > 180000) { clearInterval(watchTimer); toast("GitHub is slow · try again shortly"); }
+    }, 8000);
   }
 
   let loading = false;
@@ -391,7 +440,14 @@
         renderBanner(stores); renderStock(stores); renderChanges(); renderPatterns();
         document.title = stores.some((s) => s.any) ? "IN STOCK · Duo Watch" : "Duo Watch";
       }
-      if (manual) toast(changed ? "Updated" : "Up to date");
+      if (manual && !isLive() && REPO) {
+        const res = await dispatchCheck();
+        if (res === "ok") { toast("Checking Apple via GitHub · ~1 min"); watchForFresh(STATUS.checked_at); }
+        else if (res === "recent") toast("Check already running · hang tight");
+        else if (res === "bad-token") toast("GitHub token didn't work · check it below");
+        else if (res === "no-token") toast(`Data is ${ago(secondsAgo(STATUS.checked_at))} · add a GitHub token below to check now`);
+        else toast("Couldn't start a check · try again");
+      } else if (manual) toast(changed ? "Updated" : "Up to date");
     } catch (e) {
       if (!STATUS) {
         $("source").textContent = "Couldn't load";
@@ -400,7 +456,8 @@
       if (manual) toast("Offline · try again");
     } finally {
       loading = false;
-      if (manual) { btn.disabled = false; btn.textContent = "Refresh"; }
+      if (manual) btn.disabled = false;
+      updateRefreshLabel();
     }
   }
 
@@ -412,6 +469,13 @@
   }));
 
   // ---------- test push ----------
+  $("ghToken").value = store.get("ghToken") || "";
+  $("saveToken").addEventListener("click", () => {
+    const v = $("ghToken").value.trim();
+    store.set("ghToken", v);
+    $("tokenNote").textContent = v ? "Saved on this device. Refresh can now run a fresh check when your PC's data is old." : "Token removed.";
+    updateRefreshLabel();
+  });
   $("topic").value = store.get("ntfyTopic") || "";
   $("testPush").addEventListener("click", async () => {
     const topic = $("topic").value.trim();
@@ -433,7 +497,7 @@
   window.addEventListener("pageshow", () => load());
   window.addEventListener("online", () => load());
   setInterval(() => { if (!document.hidden) load(); }, 20000);   // sync every 20s while open
-  setInterval(renderHeader, 1000);                                // live "updated Xs ago"
+  setInterval(() => { renderHeader(); updateRefreshLabel(); }, 1000);                                // live "updated Xs ago"
 
   // ---------- pull to refresh (home-screen app has no browser reload) ----------
   (() => {

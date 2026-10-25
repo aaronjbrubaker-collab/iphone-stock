@@ -178,7 +178,7 @@ class Nagger:
 def nag_message(rows: list[tuple[dict, dict]]) -> tuple[str, str, str]:
     m0, _ = rows[0]
     lines = [f"{s['name']} ({s.get('distance', '')}): {m.get('color') or m['label']}" for m, s in rows[:6]]
-    lines.append("Still available. Tap to buy.")
+    lines.append("Still available. Tap: bag → this store → Apple Pay.")
     return f"STILL IN STOCK: {m0.get('color') or m0['label']}", "\n".join(lines), m0.get("url") or cs.BUY_URL
 
 
@@ -269,7 +269,9 @@ def main(argv: list[str] | None = None) -> int:
             if nag and settings["topic"]:
                 title, msg, click = nag_message(nag)
                 try:
-                    cs.send_ntfy(settings["topic"], title, msg, settings["server"], False, click=click)
+                    tap = cs.BAG_URL if settings.get("alert_click", "bag") == "bag" else click
+                    cs.send_ntfy(settings["topic"], title, msg, settings["server"], False,
+                                 click=tap, actions=cs.alert_actions(click))
                     print(f"[{time.strftime('%H:%M:%S')}] >>> NAG SENT: {title}")
                 except Exception as e:
                     print(f"[{time.strftime('%H:%M:%S')}] nag push failed: {e}")

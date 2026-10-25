@@ -10,7 +10,8 @@ home-screen dashboard. Keep it free to run and dependency-light.
   parses `body.stores[].partsAvailability[part].pickupDisplay` ("available"/"unavailable"),
   filters stores by `storedistance` (miles) <= `radius_miles`,
   writes `status.json` + `history.json` (restock "in" / sell-out "out" events, last 500),
-  and POSTs an urgent ntfy push (Click = that color's Apple buy page) for stores that
+  and POSTs an urgent ntfy push (tap opens the Apple bag by default, `alert_click: "product"`
+  opens the buy page; action buttons "Open bag" + "Buy page") for stores that
   newly became available (compares against the previous status.json).
   `--test-alert` sends a test push and exits.
 - `local_runner.py` (+ `start-runner.bat`): PC runner on the owner's always-on Windows PC.
@@ -36,6 +37,11 @@ home-screen dashboard. Keep it free to run and dependency-light.
   Syncs every 20s while open, live "updated Xs ago", pull to refresh, source badge.
   `?repo=owner/name` overrides (handy for local testing), `?src=<url>` for local files. Has a
   "Send test push" box; the ntfy topic is stored in the viewer's localStorage only.
+  Optional GitHub token box (fine-grained, Actions read/write, localStorage only): when
+  data isn't live (error, GitHub-sourced, or > 5 min old) Refresh becomes "Check now" and
+  dispatches check-stock.yml, then syncs every 8s until the fresh check lands.
+  Patterns tab links out to other trackers (Manzana, Apple Inventory Check, iPhone Stock
+  Checker); their data is not scraped or imported.
 - `config.json`: models (`label`, `color`, `part`, `url`), `zip`, `radius_miles`, `max_stores`,
   optional `ntfy_topic`. Env vars `APPLE_ZIP` / `NTFY_TOPIC` (repo secrets) override.
 - Tracking: iPhone Duo 256GB unlocked, Night Sky `MK1F4LL/A`, Star White `MK1E4LL/A`.

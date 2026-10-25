@@ -111,6 +111,17 @@ class AlertTests(unittest.TestCase):
         self.assertEqual(alerts[0][2], "https://example.com/black")
 
 
+class ActionTests(unittest.TestCase):
+    def test_actions_open_bag_and_buy_page(self):
+        a = cs.alert_actions("https://example.com/black")
+        self.assertIn("Open bag, https://www.apple.com/shop/bag", a)
+        self.assertIn("Buy page, https://example.com/black", a)
+
+    def test_default_click_is_bag(self):
+        self.assertEqual(cs.load_settings({})["alert_click"], "bag")
+        self.assertEqual(cs.load_settings({"alert_click": "product"})["alert_click"], "product")
+
+
 class HistoryTests(unittest.TestCase):
     def test_restock_then_sellout_events(self):
         sold = {"models": cs.parse_response(SOLD_OUT, MODELS, 8)}

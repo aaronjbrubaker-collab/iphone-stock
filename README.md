@@ -91,6 +91,17 @@ The app header shows **"Live · your PC checks every 60s"** with a green dot whi
   real alerts use (GitHub → ntfy → your phone).
 - Or type your topic into the box at the bottom of the dashboard and tap **Send test push**.
 
+## Fastest checkout from an alert
+1. **Tonight:** in the Apple Store app, add the iPhone Duo 256GB, your color, unlocked,
+   no AppleCare to your **bag**, and make sure Apple Pay is set up.
+2. **When an alert hits:** tap it → your bag opens → choose the store from the alert →
+   Apple Pay → Face ID. The alert also has a "Buy page" button if your bag is empty.
+
+## Check now from the app
+Add a fine-grained GitHub token (this repo only, *Actions: Read and write*) in the box at
+the bottom of the app. When your PC's data is old, the Refresh button turns into
+**Check now** and has GitHub check Apple immediately (about a minute).
+
 ## How alerts work
 - You get a push only when a model goes from unavailable to available at a store,
   not on every check while it stays in stock.

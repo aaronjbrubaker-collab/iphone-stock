@@ -37,6 +37,7 @@ from datetime import datetime, timezone
 
 APPLE_URL = "https://www.apple.com/shop/retail/pickup-message"
 BUY_URL = "https://www.apple.com/shop/buy-iphone"
+BAG_URL = "https://www.apple.com/shop/bag"
 HISTORY_LIMIT = 500
 HEADERS = {
     "User-Agent": (
@@ -213,8 +214,14 @@ def _ascii(text: str) -> str:
     return text.encode("ascii", "ignore").decode("ascii")
 
 
+def alert_actions(buy_url: str, label: str = "Buy page") -> str:
+    """ntfy action buttons shown under the notification."""
+    return f"view, Open bag, {BAG_URL}; view, {label}, {buy_url}"
+
+
 def send_ntfy(topic: str, title: str, message: str, server: str, dry_run: bool,
-              click: str = BUY_URL, priority: str = "urgent", tags: str = "iphone,rotating_light") -> None:
+              click: str = BUY_URL, priority: str = "urgent", tags: str = "iphone,rotating_light",
+              actions: str | None = None) -> None:
     if dry_run:
         print(f"[dry-run] push -> {title}\n{message}\n(click: {click})\n")
         return
@@ -227,6 +234,7 @@ def send_ntfy(topic: str, title: str, message: str, server: str, dry_run: bool,
             "Priority": priority,
             "Tags": tags,
             "Click": click,
+            **({"Actions": _ascii(actions)} if actions else {}),
         },
     )
     with urllib.request.urlopen(req, timeout=15) as resp:
@@ -243,7 +251,7 @@ def build_alerts(fresh: dict[str, list[dict]], models: list[dict]) -> list[tuple
         for s in stores:
             where = f"{s['name']}" + (f" ({s['distance']})" if s["distance"] else "")
             lines.append(f"{where}: {s['quote'] or 'Available for pickup'}")
-        lines.append("Tap to open Apple and check out.")
+        lines.append("Tap: your bag → pick this store → Apple Pay.")
         alerts.append((title, "\n".join(lines), m.get("url") or BUY_URL))
     return alerts
 
@@ -272,6 +280,7 @@ def load_settings(config: dict) -> dict:
         "radius": float(radius) if radius else None,
         "topic": (os.environ.get("NTFY_TOPIC") or str(config.get("ntfy_topic", ""))).strip(),
         "server": os.environ.get("NTFY_SERVER", "https://ntfy.sh"),
+        "alert_click": str(config.get("alert_click", "bag")),   # "bag" or "product"
     }
 
 
@@ -332,7 +341,9 @@ def check_once(settings: dict, prev: dict, history: dict, *, source: str = "cli"
     for title, message, click in alerts:
         if settings["topic"] or dry_run:
             try:
-                send_ntfy(settings["topic"], title, message, settings["server"], dry_run, click=click)
+                tap = BAG_URL if settings.get("alert_click", "bag") == "bag" else click
+                send_ntfy(settings["topic"], title, message, settings["server"], dry_run,
+                          click=tap, actions=alert_actions(click))
             except Exception as e:
                 log(f"WARN: push failed: {e}")
         log(f"ALERT: {title}")
