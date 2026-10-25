@@ -1,18 +1,18 @@
 {
-  "zip": "",
+  "92108": "",
   "radius_miles": 25,
   "max_stores": 12,
   "models": [
     {
-      "label": "iPhone Duo 256GB Night Sky",
+      "label": "iPhone Duo 512GB Night Sky",
       "color": "Night Sky",
-      "part": "MK1F4LL/A",
+      "part": "MK1H4LL/A",
       "url": "https://www.apple.com/shop/buy-iphone/iphone-duo/7.6-inch-display-256gb-night-sky-unlocked"
     },
     {
-      "label": "iPhone Duo 256GB Star White",
+      "label": "iPhone Duo 512GB Star White",
       "color": "Star White",
-      "part": "MK1E4LL/A",
+      "part": "MK1G4LL/A",
       "url": "https://www.apple.com/shop/buy-iphone/iphone-duo/7.6-inch-display-256gb-star-white-unlocked"
     }
   ]
