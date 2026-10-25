@@ -156,6 +156,8 @@
   .watch { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
   .wrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 14px; border-top: 1px solid var(--line); color: var(--text); }
   .wrow:first-child { border-top: 0; }
+  .wmain { color: var(--text); min-width: 0; flex: 1; }
+  .mini.pin { padding: 4px 7px; }
   .wrow b { font-size: 14.5px; display: block; }
   .wrow small { color: var(--muted); font-size: 12px; }
   .minis { display: flex; gap: 6px; flex: none; }
@@ -419,12 +421,12 @@
   function storeCard(s) {
     return `
       <article class="store in">
-        <h3>${esc(s.name)}</h3>
+        <h3><a href="${esc((s.colors.find((c) => c.available) || s.colors[0]).url)}" target="_blank" rel="noopener" style="color:inherit">${esc(s.name)}</a></h3>
         <div class="chips">
           ${s.distance ? `<span class="chip">${esc(s.distance)} away</span>` : ""}
           <span class="chip ok">Available now</span>
         </div>
-        ${s.address ? `<a class="addr" href="${esc(s.maps_url)}" target="_blank" rel="noopener">${esc(s.address)}</a>` : `<span class="addr">${esc(s.city)}</span>`}
+        ${s.address ? `<a class="addr" href="${esc(s.maps_url)}" target="_blank" rel="noopener">📍 ${esc(s.address)}</a>` : `<span class="addr">${esc(s.city)}</span>`}
         ${s.phone ? `<a class="phone" href="tel:${esc(s.phone.replace(/[^0-9+]/g, ""))}">${esc(s.phone)}</a>` : ""}
         <div class="colors">
           ${s.colors.map((c) => `
@@ -457,11 +459,13 @@
   function watchRow(s) {
     const lr = lastRestock(s.id);
     const sub = esc([s.distance, s.city].filter(Boolean).join(" · ")) + (lr ? ` · <em>restocked ${esc(shortAgo(lr.t))}</em>` : "");
+    const buy = (s.colors[0] && s.colors[0].url) || "https://www.apple.com/shop/buy-iphone";
     return `
-      <a class="wrow" href="${esc(s.maps_url || "#")}" target="_blank" rel="noopener">
-        <div><b>${esc(s.name)}</b><small>${sub}</small></div>
-        <div class="minis">${s.colors.map((c) => `<span class="mini"><i class="${swatchClass(c.color)}"></i><span>${esc(c.color)}</span></span>`).join("")}</div>
-      </a>`;
+      <div class="wrow">
+        <a class="wmain" href="${esc(buy)}" target="_blank" rel="noopener"><b>${esc(s.name)}</b><small>${sub}</small></a>
+        <div class="minis">${s.colors.map((c) => `<a class="mini" href="${esc(c.url)}" target="_blank" rel="noopener"><i class="${swatchClass(c.color)}"></i><span>${esc(c.color)}</span></a>`).join("")}
+          ${s.maps_url ? `<a class="mini pin" href="${esc(s.maps_url)}" target="_blank" rel="noopener" aria-label="Directions">📍</a>` : ""}</div>
+      </div>`;
   }
   // In-stock stores pinned on top (nearest first); everything else stays in the default
   // nearest-first order. When stock disappears the store drops back into its usual spot.
