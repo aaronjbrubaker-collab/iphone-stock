@@ -3,15 +3,19 @@
 iPhone pickup-stock checker.
 
 Asks Apple's store pickup endpoint which Apple Stores within a radius of a ZIP
-code have each configured iPhone model available, writes a status.json snapshot for the
-dashboard, and sends a phone push (via ntfy) whenever a model becomes
-available at a store where it wasn't available on the previous check.
+code have each configured iPhone model available, writes a status.json snapshot
+plus a history.json log of restock / sell-out events for the dashboard, and
+sends an urgent phone push (via ntfy) whenever a model becomes available at a
+store where it wasn't available on the previous check.
 
 Standard library only, so it runs anywhere Python 3.9+ is installed.
 
 Usage:
-  python checker/check_stock.py --config config.json --prev prev_status.json --out status.json
-  python checker/check_stock.py --fixture tests/fixtures/sample.json --dry-run   # offline test
+  python checker/check_stock.py --config config.json \
+      --prev prev_status.json --history-in prev_history.json \
+      --out status.json --history-out history.json
+  python checker/check_stock.py --fixture tests/fixtures/live_sample_nyc.json --dry-run
+  python checker/check_stock.py --test-alert          # send a test push and exit
 
 Environment variables:
   APPLE_ZIP   ZIP code to search around (overrides config "zip")
@@ -33,6 +37,7 @@ from datetime import datetime, timezone
 
 APPLE_URL = "https://www.apple.com/shop/retail/pickup-message"
 BUY_URL = "https://www.apple.com/shop/buy-iphone"
+HISTORY_LIMIT = 500
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 "
@@ -87,6 +92,28 @@ def store_miles(store: dict) -> float | None:
         return None
 
 
+def _https(url: str | None) -> str:
+    if not url:
+        return ""
+    return "https://" + url.split("://", 1)[1] if url.startswith("http://") else url
+
+
+def store_details(store: dict) -> dict:
+    addr = store.get("address") or {}
+    street = addr.get("address2") or ""
+    city = store.get("city") or ""
+    state = store.get("state") or ""
+    postal = addr.get("postalCode") or ""
+    line = ", ".join(x for x in (street, city, f"{state} {postal}".strip()) if x)
+    query = urllib.parse.quote_plus(f"Apple {store.get('storeName', '')} {line}")
+    return {
+        "address": line,
+        "phone": store.get("phoneNumber") or "",
+        "store_url": _https(store.get("reservationUrl") or store.get("directionsUrl")),
+        "maps_url": f"https://www.google.com/maps/search/?api=1&query={query}",
+    }
+
+
 def parse_response(data: dict, models: list[dict], max_stores: int,
                    radius_miles: float | None = None) -> list[dict]:
     """Turn Apple's response into one entry per configured model.
@@ -113,17 +140,22 @@ def parse_response(data: dict, models: list[dict], max_stores: int,
             if not avail:
                 continue
             display = (avail.get("pickupDisplay") or "").lower()
-            store_rows.append({
+            row = {
                 "id": str(store.get("storeNumber", "")),
                 "name": store.get("storeName", "Apple Store"),
                 "city": ", ".join(x for x in (store.get("city"), store.get("state")) if x),
                 "distance": store.get("storeDistanceWithUnit", ""),
+                "miles": store_miles(store),
                 "available": display == "available",
                 "quote": avail.get("pickupSearchQuote") or "",
-            })
+            }
+            row.update(store_details(store))
+            store_rows.append(row)
         results.append({
             "part": part,
             "label": model.get("label", part),
+            "color": model.get("color", ""),
+            "url": model.get("url") or BUY_URL,
             "any_available": any(s["available"] for s in store_rows),
             "stores": store_rows,
         })
@@ -131,7 +163,7 @@ def parse_response(data: dict, models: list[dict], max_stores: int,
 
 
 # --------------------------------------------------------------------------
-# Change detection + alerts
+# Change detection, history + alerts
 # --------------------------------------------------------------------------
 
 def available_set(status: dict) -> set[tuple[str, str]]:
@@ -154,13 +186,37 @@ def new_availability(prev: dict, models: list[dict]) -> dict[str, list[dict]]:
     return fresh
 
 
+def change_events(prev: dict, models: list[dict], when: str) -> list[dict]:
+    """Restock ('in') and sell-out ('out') events between two checks."""
+    before = available_set(prev)
+    now = {(m["part"], s["id"]) for m in models for s in m["stores"] if s["available"]}
+    lookup = {(m["part"], s["id"]): (m, s) for m in models for s in m["stores"]}
+    prev_lookup = {
+        (m.get("part"), s.get("id")): (m, s)
+        for m in prev.get("models", []) or [] for s in m.get("stores", []) or []
+    }
+    events = []
+    for key in sorted(now - before):
+        m, s = lookup[key]
+        events.append({"t": when, "kind": "in", "part": m["part"], "label": m["label"],
+                       "color": m.get("color", ""), "store_id": s["id"], "store": s["name"],
+                       "quote": s.get("quote", "")})
+    for key in sorted(before - now):
+        m, s = lookup.get(key) or prev_lookup.get(key) or ({}, {})
+        events.append({"t": when, "kind": "out", "part": key[0], "label": m.get("label", key[0]),
+                       "color": m.get("color", ""), "store_id": key[1],
+                       "store": s.get("name", key[1]), "quote": ""})
+    return events
+
+
 def _ascii(text: str) -> str:
     return text.encode("ascii", "ignore").decode("ascii")
 
 
-def send_ntfy(topic: str, title: str, message: str, server: str, dry_run: bool) -> None:
+def send_ntfy(topic: str, title: str, message: str, server: str, dry_run: bool,
+              click: str = BUY_URL, priority: str = "urgent", tags: str = "iphone,rotating_light") -> None:
     if dry_run:
-        print(f"[dry-run] push -> {title}\n{message}\n")
+        print(f"[dry-run] push -> {title}\n{message}\n(click: {click})\n")
         return
     req = urllib.request.Request(
         f"{server.rstrip('/')}/{urllib.parse.quote(topic)}",
@@ -168,25 +224,27 @@ def send_ntfy(topic: str, title: str, message: str, server: str, dry_run: bool) 
         method="POST",
         headers={
             "Title": _ascii(title),
-            "Priority": "high",
-            "Tags": "iphone,white_check_mark",
-            "Click": BUY_URL,
+            "Priority": priority,
+            "Tags": tags,
+            "Click": click,
         },
     )
     with urllib.request.urlopen(req, timeout=15) as resp:
         resp.read()
 
 
-def build_alerts(fresh: dict[str, list[dict]], models: list[dict]) -> list[tuple[str, str]]:
-    labels = {m["part"]: m["label"] for m in models}
+def build_alerts(fresh: dict[str, list[dict]], models: list[dict]) -> list[tuple[str, str, str]]:
+    by_part = {m["part"]: m for m in models}
     alerts = []
     for part, stores in fresh.items():
-        title = f"In stock: {labels.get(part, part)}"
+        m = by_part.get(part, {})
+        title = f"IN STOCK: {m.get('label', part)}"
         lines = []
         for s in stores:
             where = f"{s['name']}" + (f" ({s['distance']})" if s["distance"] else "")
             lines.append(f"{where}: {s['quote'] or 'Available for pickup'}")
-        alerts.append((title, "\n".join(lines)))
+        lines.append("Tap to open Apple and check out.")
+        alerts.append((title, "\n".join(lines), m.get("url") or BUY_URL))
     return alerts
 
 
@@ -209,8 +267,11 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--config", default="config.json")
     ap.add_argument("--prev", default=None, help="Previous status.json (for change detection)")
     ap.add_argument("--out", default="status.json")
+    ap.add_argument("--history-in", default=None, help="Previous history.json")
+    ap.add_argument("--history-out", default=None, help="Where to write the updated history.json")
     ap.add_argument("--fixture", default=None, help="Read Apple response from a file instead of the network")
     ap.add_argument("--dry-run", action="store_true", help="Print alerts instead of sending them")
+    ap.add_argument("--test-alert", action="store_true", help="Send a test push notification and exit")
     args = ap.parse_args(argv)
 
     config = load_json(args.config, {})
@@ -221,7 +282,22 @@ def main(argv: list[str] | None = None) -> int:
     radius = float(radius) if radius else None
     topic = (os.environ.get("NTFY_TOPIC") or str(config.get("ntfy_topic", ""))).strip()
     server = os.environ.get("NTFY_SERVER", "https://ntfy.sh")
+
+    if args.test_alert:
+        if not topic and not args.dry_run:
+            print("ERROR: no ntfy topic set (NTFY_TOPIC secret)", file=sys.stderr)
+            return 1
+        url = models[0].get("url", BUY_URL) if models else BUY_URL
+        send_ntfy(topic, "Test: iPhone stock alerts are working",
+                  "This is what a restock alert looks like. Tap to open the Apple Store.",
+                  server, args.dry_run, click=url, priority="high", tags="iphone,white_check_mark")
+        print("Test alert sent.")
+        return 0
+
     prev = load_json(args.prev, {})
+    history = load_json(args.history_in, {"events": []})
+    if not isinstance(history, dict) or not isinstance(history.get("events"), list):
+        history = {"events": []}
 
     status = {
         "radius_miles": radius,
@@ -248,17 +324,27 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {e}", file=sys.stderr)
     else:
         status["last_success_at"] = status["checked_at"]
+        if prev.get("models") is not None or prev.get("checked_at"):
+            history["events"].extend(change_events(prev, status["models"], status["checked_at"]))
+        else:  # first ever run: record what's already in stock, no sell-outs
+            history["events"].extend(change_events({}, status["models"], status["checked_at"]))
+        history["events"] = history["events"][-HISTORY_LIMIT:]
+
         fresh = new_availability(prev, status["models"])
-        for title, message in build_alerts(fresh, status["models"]):
+        for title, message, click in build_alerts(fresh, status["models"]):
             if topic or args.dry_run:
                 try:
-                    send_ntfy(topic, title, message, server, args.dry_run)
+                    send_ntfy(topic, title, message, server, args.dry_run, click=click)
                 except Exception as e:
                     print(f"WARN: push failed: {e}", file=sys.stderr)
             print(f"ALERT: {title}")
 
+    history["updated_at"] = status["checked_at"]
     with open(args.out, "w", encoding="utf-8") as f:
         json.dump(status, f, indent=2)
+    if args.history_out:
+        with open(args.history_out, "w", encoding="utf-8") as f:
+            json.dump(history, f, indent=1)
 
     for m in status["models"]:
         n = sum(s["available"] for s in m["stores"])

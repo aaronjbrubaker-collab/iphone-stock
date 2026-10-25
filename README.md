@@ -65,6 +65,11 @@ Your dashboard will be at `https://<your-username>.github.io/<repo-name>/`.
 After it finishes (~30 s), open the dashboard on your phone and use
 **Share → Add to Home Screen**. From then on it runs every 5 minutes on its own.
 
+## Test your alerts
+- **Actions → Send test alert → Run workflow** sends a test push through the same path
+  real alerts use (GitHub → ntfy → your phone).
+- Or type your topic into the box at the bottom of the dashboard and tap **Send test push**.
+
 ## How alerts work
 - You get a push only when a model goes from unavailable to available at a store,
   not on every check while it stays in stock.

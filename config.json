@@ -3,7 +3,17 @@
   "radius_miles": 25,
   "max_stores": 12,
   "models": [
-    { "label": "iPhone Duo 256GB Night Sky", "part": "MK1F4LL/A" },
-    { "label": "iPhone Duo 256GB Star White", "part": "MK1E4LL/A" }
+    {
+      "label": "iPhone Duo 256GB Night Sky",
+      "color": "Night Sky",
+      "part": "MK1F4LL/A",
+      "url": "https://www.apple.com/shop/buy-iphone/iphone-duo/7.6-inch-display-256gb-night-sky-unlocked"
+    },
+    {
+      "label": "iPhone Duo 256GB Star White",
+      "color": "Star White",
+      "part": "MK1E4LL/A",
+      "url": "https://www.apple.com/shop/buy-iphone/iphone-duo/7.6-inch-display-256gb-star-white-unlocked"
+    }
   ]
 }

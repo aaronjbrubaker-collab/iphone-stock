@@ -3,160 +3,346 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>iPhone Stock</title>
-<meta name="theme-color" content="#0b0d10" media="(prefers-color-scheme: dark)">
-<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+<title>Duo Watch</title>
+<meta name="theme-color" content="#0a0e17">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="iPhone Stock">
+<meta name="apple-mobile-web-app-title" content="Duo Watch">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
 <style>
   :root {
-    --bg: #f5f5f7; --card: #ffffff; --text: #1d1d1f; --muted: #6e6e73;
-    --line: #e5e5ea; --ok: #1a8f3c; --ok-bg: #e3f6e8; --no: #8e8e93; --no-bg: #f0f0f3;
-    --warn: #a15c00; --warn-bg: #fff3dd; --accent: #0071e3;
+    --bg: #0a0e17; --panel: #111725; --card: #151c2c; --card-2: #1a2235;
+    --line: #232c40; --text: #eef1f7; --muted: #8b95ab; --faint: #5d6780;
+    --accent: #f5c542; --accent-ink: #1d1600; --accent-soft: rgba(245,197,66,.12);
+    --ok: #3ddc84; --ok-ink: #04210f; --ok-soft: rgba(61,220,132,.14);
+    --bad: #ff6b6b; --link: #7fb2ff;
+    --night: #1e2638; --night-ink: #dfe6f5; --white: #f4f1ea; --white-ink: #1c1c1c;
+    --radius: 18px;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #0b0d10; --card: #16191e; --text: #f5f5f7; --muted: #9a9aa0;
-      --line: #262a31; --ok: #4ade80; --ok-bg: #12301c; --no: #8e8e93; --no-bg: #1e2228;
-      --warn: #fbbf24; --warn-bg: #33270d; --accent: #4da3ff;
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f3f4f7; --panel: #ffffff; --card: #ffffff; --card-2: #f6f7fa;
+      --line: #e3e6ed; --text: #121722; --muted: #5b6477; --faint: #8a93a6;
+      --accent: #d99a00; --accent-ink: #ffffff; --accent-soft: rgba(217,154,0,.12);
+      --ok: #12924a; --ok-ink: #ffffff; --ok-soft: rgba(18,146,74,.12);
+      --link: #1f63d6; --night: #1e2638; --night-ink: #eef1f7; --white: #f4f1ea; --white-ink: #1c1c1c;
     }
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); color: var(--text); }
   body {
-    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-    padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
-    max-width: 640px; margin: 0 auto;
+    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    padding: max(14px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+    -webkit-font-smoothing: antialiased;
   }
-  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 8px 0 16px; }
-  h1 { font-size: 28px; letter-spacing: -0.02em; margin: 0; }
-  .meta { color: var(--muted); font-size: 13px; margin-top: 4px; }
-  button {
-    font: inherit; font-size: 14px; font-weight: 600; color: var(--accent); background: var(--card);
-    border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; cursor: pointer;
-  }
-  .banner { border-radius: 12px; padding: 12px 14px; font-size: 14px; margin-bottom: 12px; }
-  .banner.warn { background: var(--warn-bg); color: var(--warn); }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; margin-bottom: 14px; overflow: hidden; }
-  .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; }
-  .card-head h2 { font-size: 17px; margin: 0; }
-  .part { color: var(--muted); font-size: 12px; font-family: ui-monospace, Menlo, monospace; }
-  .pill { font-size: 13px; font-weight: 600; border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
-  .pill.ok { color: var(--ok); background: var(--ok-bg); }
-  .pill.no { color: var(--no); background: var(--no-bg); }
-  ul { list-style: none; margin: 0; padding: 0; }
-  li { display: flex; justify-content: space-between; gap: 12px; padding: 11px 16px; border-top: 1px solid var(--line); font-size: 15px; }
-  li .where small { display: block; color: var(--muted); font-size: 12px; }
-  li .q { text-align: right; font-size: 13px; color: var(--muted); }
-  li.avail .q { color: var(--ok); font-weight: 600; }
-  .empty { color: var(--muted); text-align: center; padding: 48px 16px; }
-  a { color: var(--accent); }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  a { color: var(--link); text-decoration: none; }
+  button { font: inherit; cursor: pointer; }
+
+  /* Header */
+  .top { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px 12px; padding: 10px 2px 16px; flex-wrap: wrap; }
+  .top > div:first-child { min-width: 0; }
+  @media (max-width: 639px) { .top > div:first-child { flex: 1 1 100%; } .meta { width: 100%; } .meta .icon-btn { margin-left: auto; } }
+  .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+  h1 { font-size: 28px; letter-spacing: -0.02em; margin: 4px 0 0; white-space: nowrap; }
+  h1 span { color: var(--muted); font-weight: 600; }
+  .meta { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .live { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 4px var(--ok-soft); }
+  .live.stale { background: var(--bad); box-shadow: 0 0 0 4px rgba(255,107,107,.15); }
+  .icon-btn { border: 1px solid var(--line); background: var(--card); color: var(--text); border-radius: 999px; padding: 7px 12px; font-size: 13px; font-weight: 600; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 22px; border-bottom: 1px solid var(--line); margin-bottom: 16px; overflow-x: auto; }
+  .tab { background: none; border: 0; color: var(--muted); padding: 10px 0 12px; font-weight: 600; font-size: 14px; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .tab[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
+
+  /* Banner */
+  .banner { border-radius: var(--radius); padding: 16px; margin-bottom: 16px; display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .banner.calm { background: var(--accent-soft); border: 1px solid rgba(245,197,66,.35); }
+  .banner.hot { background: var(--ok-soft); border: 1px solid var(--ok); }
+  .banner.err { background: rgba(255,107,107,.1); border: 1px solid rgba(255,107,107,.4); color: var(--text); }
+  .banner b { display: block; font-size: 15px; margin-bottom: 2px; }
+  .banner small { color: var(--muted); font-size: 13px; }
+  .cta { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; padding: 11px 18px; font-weight: 700; font-size: 14px; border: 0; white-space: nowrap; }
+  .cta.accent { background: var(--accent); color: var(--accent-ink); }
+  .cta.ok { background: var(--ok); color: var(--ok-ink); }
+
+  /* Store grid */
+  .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 640px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 980px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+  .store { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; text-align: center; }
+  .store.in { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok) inset; }
+  .store h3 { margin: 0 0 8px; font-size: 17px; letter-spacing: -0.01em; }
+  .chips { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 8px; }
+  .chip { font-size: 11.5px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--card-2); color: var(--muted); border: 1px solid var(--line); }
+  .chip.ok { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+  .addr { font-size: 13px; display: block; margin-bottom: 2px; }
+  .phone { font-size: 12.5px; color: var(--muted); }
+  .colors { margin-top: 14px; display: grid; gap: 8px; }
+  .crow { display: grid; grid-template-columns: 112px 1fr; gap: 8px; align-items: center; }
+  .swatch { border-radius: 10px; padding: 8px 6px; font-size: 12.5px; font-weight: 600; }
+  .swatch.night { background: var(--night); color: var(--night-ink); border: 1px solid #2c3650; }
+  .swatch.white { background: var(--white); color: var(--white-ink); border: 1px solid #d8d3c8; }
+  .state { border-radius: 10px; padding: 8px 10px; font-size: 13px; font-weight: 600; text-align: center; }
+  .state.no { background: var(--card-2); color: var(--faint); border: 1px dashed var(--line); }
+  .state.yes { background: var(--ok); color: var(--ok-ink); display: block; }
+  .size-note { color: var(--faint); font-size: 11.5px; margin-top: 10px; }
+
+  /* Lists */
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid var(--line); }
+  .row:first-child { border-top: 0; }
+  .row .when { color: var(--muted); font-size: 12.5px; white-space: nowrap; }
+  .tag { font-size: 11.5px; font-weight: 700; padding: 3px 8px; border-radius: 999px; white-space: nowrap; }
+  .tag.in { background: var(--ok-soft); color: var(--ok); }
+  .tag.out { background: var(--card-2); color: var(--muted); }
+  .empty { color: var(--muted); text-align: center; padding: 36px 16px; font-size: 14px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin: 22px 2px 10px; }
+  .hours { display: grid; grid-template-columns: repeat(24, 1fr); gap: 3px; align-items: end; height: 90px; padding: 14px 16px 4px; }
+  .hours div { background: var(--accent); border-radius: 3px 3px 0 0; min-height: 2px; opacity: .85; }
+  .hours div.zero { background: var(--line); }
+  .hour-labels { display: grid; grid-template-columns: repeat(24, 1fr); padding: 0 16px 12px; color: var(--faint); font-size: 10px; }
+  .hour-labels span { text-align: center; }
+
+  /* Alerts settings */
+  .alerts { margin-top: 22px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 13px; }
+  .alerts input { flex: 1 1 200px; min-width: 0; background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; font: inherit; font-size: 13px; }
+  .note { color: var(--faint); font-size: 12px; margin-top: 8px; }
+  [hidden] { display: none !important; }
+  body:not([data-tab="stock"]) .banner.calm { display: none; }
 </style>
 </head>
-<body>
-  <header>
+<body data-tab="stock">
+<div class="wrap">
+  <header class="top">
     <div>
-      <h1>iPhone Stock</h1>
-      <div class="meta" id="meta">Loading…</div>
+      <div class="eyebrow" id="eyebrow">Within 25 mi · unlocked</div>
+      <h1>iPhone Duo <span>256GB</span></h1>
     </div>
-    <button id="refresh" type="button">Refresh</button>
+    <div class="meta">
+      <span class="live" id="live"></span>
+      <span id="checked">Loading…</span>
+      <button class="icon-btn" id="refresh" type="button">Refresh</button>
+    </div>
   </header>
-  <div id="banners"></div>
-  <main id="models"></main>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="stock" aria-selected="true">Stock</button>
+    <button class="tab" role="tab" data-tab="changes" aria-selected="false">Recent changes</button>
+    <button class="tab" role="tab" data-tab="patterns" aria-selected="false">Patterns</button>
+  </nav>
+
+  <div id="banner"></div>
+
+  <section id="tab-stock"><div class="grid" id="grid"></div></section>
+  <section id="tab-changes" hidden><div class="panel" id="changes"></div></section>
+  <section id="tab-patterns" hidden>
+    <div id="patterns"></div>
+  </section>
+
+  <div class="alerts">
+    <span>Alerts topic</span>
+    <input id="topic" placeholder="your ntfy topic" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button class="icon-btn" id="testPush" type="button">Send test push</button>
+  </div>
+  <div class="note" id="pushNote">Saved on this device only. Real alerts come from the scheduled checker every ~5 minutes.</div>
+</div>
 
 <script>
-  // Where status.json lives. On GitHub Pages (user.github.io/repo) it reads the
-  // "status" branch of the same repo. Override with ?src=<url>; falls back to ./status.json.
-  function statusUrl() {
+  // ---------- data location ----------
+  function base() {
     const qs = new URLSearchParams(location.search);
-    if (qs.get("src")) return qs.get("src");
+    if (qs.get("src")) return qs.get("src").replace(/[^/]*$/, "");
     const host = location.hostname;
     if (host.endsWith(".github.io")) {
       const user = host.split(".")[0];
       const repo = location.pathname.split("/").filter(Boolean)[0];
-      if (repo) return `https://raw.githubusercontent.com/${user}/${repo}/status/status.json`;
+      if (repo) return `https://raw.githubusercontent.com/${user}/${repo}/status/`;
     }
-    return "status.json";
+    return "./";
+  }
+  async function getJSON(name, fallback) {
+    try {
+      const r = await fetch(base() + name + "?t=" + Date.now(), { cache: "no-store" });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return await r.json();
+    } catch (e) { if (fallback !== undefined) return fallback; throw e; }
   }
 
+  // ---------- helpers ----------
   const $ = (id) => document.getElementById(id);
-  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const tm = (iso) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  function when(iso) {
+    const d = new Date(iso), now = new Date();
+    const day = d.toDateString() === now.toDateString() ? "today"
+      : (new Date(now - 864e5).toDateString() === d.toDateString() ? "yesterday"
+      : d.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" }));
+    return `${day} ${tm(iso)}`;
+  }
+  const hourLabel = (h) => (h % 12 || 12) + (h < 12 ? "am" : "pm");
+  const swatchClass = (color) => /white/i.test(color) ? "white" : "night";
+  const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+                  set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
 
-  function ago(iso) {
-    if (!iso) return "never";
-    const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins} min ago`;
-    const h = Math.round(mins / 60);
-    return h < 24 ? `${h} hr ago` : `${Math.round(h / 24)} days ago`;
+  let STATUS = null, HISTORY = { events: [] };
+
+  // ---------- derived ----------
+  function storesFrom(status) {
+    const map = new Map();
+    for (const m of status.models || []) {
+      for (const s of m.stores || []) {
+        if (!map.has(s.id)) map.set(s.id, { ...s, colors: [] });
+        map.get(s.id).colors.push({ color: m.color || m.label.replace(/.*256GB\s*/, ""), url: m.url, available: s.available, quote: s.quote });
+      }
+    }
+    return [...map.values()]
+      .map((s) => ({ ...s, any: s.colors.some((c) => c.available) }))
+      .sort((a, b) => (b.any - a.any) || ((a.miles ?? 999) - (b.miles ?? 999)));
+  }
+  function restocks() { return (HISTORY.events || []).filter((e) => e.kind === "in"); }
+  function typicalHour(events) {
+    if (!events.length) return null;
+    const c = new Array(24).fill(0);
+    events.forEach((e) => c[new Date(e.t).getHours()]++);
+    return c.indexOf(Math.max(...c));
   }
 
-  function render(data) {
-    $("meta").textContent = `Checked ${ago(data.checked_at)}`;
-    const banners = [];
-    if (data.error) {
-      banners.push(`Last check failed: ${esc(data.error)}` +
-        (data.last_success_at ? ` Showing data from ${esc(ago(data.last_success_at))}.` : ""));
+  // ---------- render ----------
+  function renderBanner(stores) {
+    const hot = stores.filter((s) => s.any);
+    let html = "";
+    if (STATUS.error) {
+      html += `<div class="banner err"><div><b>Last check failed</b><small>${esc(STATUS.error)}${STATUS.last_success_at ? ` · showing data from ${esc(when(STATUS.last_success_at))}` : ""}</small></div></div>`;
     }
-    const ageMin = (Date.now() - new Date(data.checked_at).getTime()) / 60000;
-    if (ageMin > 30) banners.push("No check in over 30 minutes. The scheduled job may be paused; check the Actions tab on GitHub.");
-    $("banners").innerHTML = banners.map((b) => `<div class="banner warn">${b}</div>`).join("");
+    if (hot.length) {
+      const s = hot[0], c = s.colors.find((x) => x.available);
+      html += `<div class="banner hot"><div><b>In stock at ${esc(s.name)}${hot.length > 1 ? ` + ${hot.length - 1} more` : ""}</b>
+        <small>${esc(c.color)} · ${esc(s.distance)} · ${esc(c.quote || "Available for pickup")}</small></div>
+        <a class="cta ok" href="${esc(c.url)}" target="_blank" rel="noopener">Buy now →</a></div>`;
+    } else {
+      const r = restocks(), last = r[r.length - 1];
+      const usual = typicalHour(last ? r.filter((e) => e.store_id === last.store_id) : []);
+      const detail = last
+        ? `<b>${esc(last.store)} last restocked ${esc(when(last.t))}</b><small>${esc(last.color || last.label)}${usual !== null ? ` · usually around ${hourLabel(usual)}` : ""} · you'll get a push the moment it lands again</small>`
+        : `<b>Nothing in stock nearby right now</b><small>You'll get a push on your phone the moment either color lands at one of these stores.</small>`;
+      html += `<div class="banner calm"><div>${detail}</div>
+        <a class="cta accent" href="${esc((STATUS.models[0] || {}).url || "https://www.apple.com/shop/buy-iphone")}" target="_blank" rel="noopener">Open Apple Store</a></div>`;
+    }
+    $("banner").innerHTML = html;
+  }
 
-    const models = data.models || [];
-    if (!models.length) {
-      $("models").innerHTML = `<div class="empty">No models yet. Add part numbers to <code>config.json</code>.</div>`;
+  function renderStock(stores) {
+    if (!stores.length) { $("grid").innerHTML = `<div class="empty">No stores within range yet. Run the workflow once from the GitHub Actions tab.</div>`; return; }
+    $("grid").innerHTML = stores.map((s) => `
+      <article class="store ${s.any ? "in" : ""}">
+        <h3>${esc(s.name)}</h3>
+        <div class="chips">
+          ${s.distance ? `<span class="chip">${esc(s.distance)} away</span>` : ""}
+          <span class="chip ${s.any ? "ok" : ""}">${s.any ? "Available now" : "None available"}</span>
+        </div>
+        ${s.address ? `<a class="addr" href="${esc(s.maps_url)}" target="_blank" rel="noopener">${esc(s.address)}</a>` : `<span class="addr">${esc(s.city)}</span>`}
+        ${s.phone ? `<a class="phone" href="tel:${esc(s.phone.replace(/[^0-9+]/g, ""))}">${esc(s.phone)}</a>` : ""}
+        <div class="colors">
+          ${s.colors.map((c) => `
+            <div class="crow">
+              <span class="swatch ${swatchClass(c.color)}">${esc(c.color)}</span>
+              ${c.available
+                ? `<a class="state yes" href="${esc(c.url)}" target="_blank" rel="noopener">${esc(c.quote || "Available")} · Buy →</a>`
+                : `<span class="state no">Sold out</span>`}
+            </div>`).join("")}
+        </div>
+      </article>`).join("");
+  }
+
+  function renderChanges() {
+    const ev = (HISTORY.events || []).slice().reverse().slice(0, 100);
+    $("changes").innerHTML = ev.length ? ev.map((e) => `
+      <div class="row">
+        <div><b>${esc(e.store)}</b><br><span class="when">${esc(e.color || e.label)} · ${esc(when(e.t))}</span></div>
+        <span class="tag ${e.kind}">${e.kind === "in" ? "Restocked" : "Sold out"}</span>
+      </div>`).join("")
+      : `<div class="empty">No restocks seen yet. Every restock and sell-out at these stores will be logged here.</div>`;
+  }
+
+  function renderPatterns() {
+    const r = restocks();
+    if (!r.length) {
+      $("patterns").innerHTML = `<div class="panel"><div class="empty">Patterns build up as restocks happen: which stores restock most and what time of day.</div></div>`;
       return;
     }
-    $("models").innerHTML = models.map((m) => {
-      const count = m.stores.filter((s) => s.available).length;
-      const pill = count
-        ? `<span class="pill ok">${count} store${count > 1 ? "s" : ""}</span>`
-        : `<span class="pill no">Sold out nearby</span>`;
-      const rows = m.stores
-        .slice()
-        .sort((a, b) => Number(b.available) - Number(a.available))
-        .map((s) => `
-          <li class="${s.available ? "avail" : ""}">
-            <span class="where">${esc(s.name)}<small>${esc([s.city, s.distance].filter(Boolean).join(" · "))}</small></span>
-            <span class="q">${s.available ? esc(s.quote || "Available") : "Unavailable"}</span>
-          </li>`).join("");
-      return `
-        <section class="card">
-          <div class="card-head">
-            <div><h2>${esc(m.label)}</h2><div class="part">${esc(m.part)}</div></div>
-            ${pill}
-          </div>
-          <ul>${rows || `<li><span class="where">No nearby stores returned</span></li>`}</ul>
-        </section>`;
-    }).join("") +
-    `<p class="meta" style="text-align:center"><a href="https://www.apple.com/shop/buy-iphone" target="_blank" rel="noopener">Open Apple Store</a></p>`;
+    const hours = new Array(24).fill(0);
+    r.forEach((e) => hours[new Date(e.t).getHours()]++);
+    const max = Math.max(...hours);
+    const byStore = new Map();
+    r.forEach((e) => { const x = byStore.get(e.store) || []; x.push(e); byStore.set(e.store, x); });
+    const rows = [...byStore.entries()].sort((a, b) => b[1].length - a[1].length);
+    $("patterns").innerHTML = `
+      <h2 style="margin-top:0">Restocks by hour</h2>
+      <div class="panel">
+        <div class="hours">${hours.map((n) => `<div class="${n ? "" : "zero"}" style="height:${n ? Math.max(8, (n / max) * 100) : 2}%" title="${n} restocks"></div>`).join("")}</div>
+        <div class="hour-labels">${hours.map((_, h) => `<span>${h % 6 === 0 ? hourLabel(h) : ""}</span>`).join("")}</div>
+      </div>
+      <h2>By store</h2>
+      <div class="panel">${rows.map(([name, ev]) => `
+        <div class="row"><div><b>${esc(name)}</b><br><span style="color:var(--muted);font-size:12.5px">usually around ${hourLabel(typicalHour(ev))} · last ${esc(when(ev[ev.length - 1].t))}</span></div>
+        <span class="tag in">${ev.length} restock${ev.length > 1 ? "s" : ""}</span></div>`).join("")}
+      </div>`;
+  }
+
+  function renderHeader() {
+    const age = (Date.now() - new Date(STATUS.checked_at)) / 60000;
+    $("checked").textContent = `checked ${tm(STATUS.checked_at)}`;
+    $("live").className = "live" + (age > 30 || STATUS.error ? " stale" : "");
+    if (STATUS.radius_miles) $("eyebrow").textContent = `Apple Stores · ${STATUS.radius_miles} mi · unlocked`;
   }
 
   async function load() {
     try {
-      const url = statusUrl();
-      const res = await fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now(), { cache: "no-store" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      render(await res.json());
+      [STATUS, HISTORY] = await Promise.all([getJSON("status.json"), getJSON("history.json", { events: [] })]);
+      const stores = storesFrom(STATUS);
+      renderHeader(); renderBanner(stores); renderStock(stores); renderChanges(); renderPatterns();
+      const hot = stores.some((s) => s.any);
+      document.title = hot ? "IN STOCK · Duo Watch" : "Duo Watch";
     } catch (e) {
-      $("meta").textContent = "Couldn't load status";
-      $("banners").innerHTML = `<div class="banner warn">No status yet (${esc(e.message)}). Run the workflow once from the GitHub Actions tab.</div>`;
+      $("checked").textContent = "couldn't load";
+      $("banner").innerHTML = `<div class="banner err"><div><b>No status yet</b><small>${esc(e.message)} · run the workflow once from the GitHub Actions tab.</small></div></div>`;
     }
   }
+
+  // ---------- tabs ----------
+  document.querySelectorAll(".tab").forEach((t) => t.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((x) => x.setAttribute("aria-selected", String(x === t)));
+    ["stock", "changes", "patterns"].forEach((n) => $("tab-" + n).hidden = n !== t.dataset.tab);
+    document.body.dataset.tab = t.dataset.tab;
+  }));
+
+  // ---------- test push ----------
+  $("topic").value = store.get("ntfyTopic") || "";
+  $("testPush").addEventListener("click", async () => {
+    const topic = $("topic").value.trim();
+    if (!topic) { $("pushNote").textContent = "Enter your ntfy topic first."; return; }
+    store.set("ntfyTopic", topic);
+    $("pushNote").textContent = "Sending…";
+    try {
+      const r = await fetch("https://ntfy.sh/" + encodeURIComponent(topic), {
+        method: "POST",
+        headers: { "Title": "Test: Duo Watch alerts are working", "Tags": "iphone,white_check_mark", "Priority": "high" },
+        body: "If you can read this on your phone, restock alerts will reach you.",
+      });
+      $("pushNote").textContent = r.ok ? "Sent. Check your phone." : `ntfy returned ${r.status}.`;
+    } catch (e) { $("pushNote").textContent = "Couldn't reach ntfy: " + e.message; }
+  });
 
   $("refresh").addEventListener("click", load);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
   setInterval(load, 60000);
   load();
-
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
-  }
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
 </html>

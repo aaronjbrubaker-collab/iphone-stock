@@ -1,0 +1,22 @@
+name: Send test alert
+
+# Run this from the Actions tab to confirm push notifications reach your phone.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [".github/workflows/test-alert.yml"]   # also fires once when this file changes
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Send test push
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+        run: python checker/check_stock.py --config config.json --test-alert

@@ -100,8 +100,39 @@ class AlertTests(unittest.TestCase):
         prev = {"models": cs.parse_response(SOLD_OUT, MODELS, 8)}
         now = cs.parse_response(RESTOCK, MODELS, 8)
         alerts = cs.build_alerts(cs.new_availability(prev, now), now)
-        self.assertEqual(alerts[0][0], "In stock: Test Phone Black")
+        self.assertEqual(alerts[0][0], "IN STOCK: Test Phone Black")
         self.assertIn("Market Street (4.2 mi): Available Today", alerts[0][1])
+
+    def test_alert_clicks_through_to_model_url(self):
+        models = [dict(MODELS[0], url="https://example.com/black"), MODELS[1]]
+        prev = {"models": cs.parse_response(SOLD_OUT, models, 8)}
+        now = cs.parse_response(RESTOCK, models, 8)
+        alerts = cs.build_alerts(cs.new_availability(prev, now), now)
+        self.assertEqual(alerts[0][2], "https://example.com/black")
+
+
+class HistoryTests(unittest.TestCase):
+    def test_restock_then_sellout_events(self):
+        sold = {"models": cs.parse_response(SOLD_OUT, MODELS, 8)}
+        stocked = cs.parse_response(RESTOCK, MODELS, 8)
+        ins = cs.change_events(sold, stocked, "T1")
+        self.assertEqual([(e["kind"], e["store_id"], e["part"]) for e in ins], [("in", "R001", "TEST1LL/A")])
+        outs = cs.change_events({"models": stocked}, sold["models"], "T2")
+        self.assertEqual([(e["kind"], e["store"]) for e in outs], [("out", "Market Street")])
+
+    def test_no_events_when_unchanged(self):
+        sold = cs.parse_response(SOLD_OUT, MODELS, 8)
+        self.assertEqual(cs.change_events({"models": sold}, sold, "T"), [])
+
+    def test_store_details(self):
+        st = store("R001", "Market Street", "Springfield", "4.2 mi", True, False)
+        st.update({"address": {"address2": "1 Main St", "postalCode": "00001"},
+                   "phoneNumber": "555-0100", "reservationUrl": "http://www.apple.com/retail/x"})
+        row = cs.parse_response(response(st), MODELS, 8)[0]["stores"][0]
+        self.assertEqual(row["address"], "1 Main St, Springfield, NJ 00001")
+        self.assertEqual(row["phone"], "555-0100")
+        self.assertTrue(row["store_url"].startswith("https://"))
+        self.assertIn("google.com/maps", row["maps_url"])
 
 
 class EndToEndTests(unittest.TestCase):
@@ -113,7 +144,9 @@ class EndToEndTests(unittest.TestCase):
             json.dump({"zip": "00000", "max_stores": 8, "models": MODELS}, f)
         with open(fx, "w") as f:
             json.dump(fixture, f)
-        argv = ["--config", cfg, "--fixture", fx, "--out", out, "--dry-run"]
+        hist = os.path.join(tmp, "history.json")
+        argv = ["--config", cfg, "--fixture", fx, "--out", out, "--dry-run",
+                "--history-in", hist, "--history-out", hist]
         if prev:
             argv += ["--prev", prev]
         self.assertEqual(cs.main(argv), 0)
@@ -128,6 +161,16 @@ class EndToEndTests(unittest.TestCase):
             os.replace(out1, prev)
             second, _ = self.run_main(tmp, RESTOCK, prev=prev)
             self.assertTrue(second["models"][0]["any_available"])
+            with open(os.path.join(tmp, "history.json")) as f:
+                events = json.load(f)["events"]
+            self.assertEqual([(e["kind"], e["store_id"]) for e in events], [("in", "R001")])
+
+    def test_test_alert_dry_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = os.path.join(tmp, "config.json")
+            with open(cfg, "w") as f:
+                json.dump({"models": MODELS}, f)
+            self.assertEqual(cs.main(["--config", cfg, "--test-alert", "--dry-run"]), 0)
 
     def test_failure_keeps_last_good_data(self):
         with tempfile.TemporaryDirectory() as tmp:
