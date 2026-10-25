@@ -157,6 +157,24 @@
   .wrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 14px; border-top: 1px solid var(--line); color: var(--text); }
   .wrow:first-child { border-top: 0; }
   .wmain { color: var(--text); min-width: 0; flex: 1; }
+  /* Live scan bar: fills up toward the next PC check */
+  .scan { position: relative; height: 6px; border-radius: 99px; background: var(--card-2); overflow: hidden; margin: -4px 2px 14px; }
+  .scan i { position: absolute; inset: 0 auto 0 0; width: 0%; border-radius: 99px; background: linear-gradient(90deg, var(--lilac), var(--accent)); transition: width 1s linear; }
+  .scan.due i { width: 100% !important; background: linear-gradient(90deg, var(--lilac), var(--accent), var(--lilac)); background-size: 200% 100%; animation: slide 1.2s linear infinite; }
+  .scan-label { display: flex; justify-content: space-between; color: var(--faint); font-size: 11.5px; margin: -10px 4px 14px; }
+  @keyframes slide { to { background-position: -200% 0; } }
+  /* Fresh-check shimmer across store rows */
+  .wrow, .store { position: relative; }
+  .fresh .wrow::after, .fresh .store::after { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+    background: linear-gradient(100deg, transparent 20%, rgba(201,184,255,.14) 50%, transparent 80%); background-size: 250% 100%; animation: shimmer 1.1s ease-out 1; }
+  @keyframes shimmer { from { background-position: 150% 0; } to { background-position: -100% 0; } }
+  /* Per-store refresh button */
+  .rbtn { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: var(--card-2); color: var(--muted); font-size: 15px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
+  .rbtn:active { transform: scale(.92); }
+  .rbtn.spin { color: var(--accent); }
+  .rbtn.spin span { display: inline-block; animation: rot .8s linear infinite; }
+  .store .rbtn { position: absolute; top: 12px; right: 12px; }
+  @media (prefers-reduced-motion: reduce) { .scan i, .fresh .wrow::after, .fresh .store::after, .rbtn.spin span { animation: none !important; transition: none; } }
   .mini.pin { padding: 4px 7px; }
   .wrow b { font-size: 14.5px; display: block; }
   .wrow small { color: var(--muted); font-size: 12px; }
@@ -165,7 +183,9 @@
   .mini i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
   .mini i.night { background: #2c3650; box-shadow: 0 0 0 1px #4a5675 inset; }
   .mini i.white { background: #f4f1ea; box-shadow: 0 0 0 1px #c9c3b6 inset; }
-  @media (max-width: 380px) { .mini span { display: none; } }
+  @media (max-width: 520px) { .mini span { display: none; } .mini { padding: 7px; } .mini i { width: 12px; height: 12px; } }
+  .wrow small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wrow small em { display: inline-block; margin-top: 2px; }
   .demo-flag { background: var(--accent-soft); color: var(--accent); border: 1px dashed var(--accent); border-radius: 12px; padding: 8px 12px; font-size: 12.5px; margin-bottom: 12px; text-align: center; }
   /* Store grid */
   .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
@@ -263,6 +283,8 @@
     <button class="tab" role="tab" data-tab="patterns" aria-selected="false">Patterns &amp; news</button>
   </nav>
 
+  <div class="scan" id="scan"><i id="scanFill"></i></div>
+  <div class="scan-label"><span id="scanLeft">Connecting…</span><span id="scanRight"></span></div>
   <div id="banner"></div>
   <div class="stats" id="stats"></div>
 
@@ -421,6 +443,7 @@
   function storeCard(s) {
     return `
       <article class="store in">
+        <button class="rbtn${spinningStore === s.id ? " spin" : ""}" data-store="${esc(s.id)}" aria-label="Re-check ${esc(s.name)}"><span>↻</span></button>
         <h3><a href="${esc((s.colors.find((c) => c.available) || s.colors[0]).url)}" target="_blank" rel="noopener" style="color:inherit">${esc(s.name)}</a></h3>
         <div class="chips">
           ${s.distance ? `<span class="chip">${esc(s.distance)} away</span>` : ""}
@@ -458,13 +481,14 @@
   }
   function watchRow(s) {
     const lr = lastRestock(s.id);
-    const sub = esc([s.distance, s.city].filter(Boolean).join(" · ")) + (lr ? ` · <em>restocked ${esc(shortAgo(lr.t))}</em>` : "");
+    const sub = esc([s.distance, s.city].filter(Boolean).join(" · ")) + (lr ? `<br><em>✨ restocked ${esc(shortAgo(lr.t))}</em>` : "");
     const buy = (s.colors[0] && s.colors[0].url) || "https://www.apple.com/shop/buy-iphone";
     return `
       <div class="wrow">
         <a class="wmain" href="${esc(buy)}" target="_blank" rel="noopener"><b>${esc(s.name)}</b><small>${sub}</small></a>
         <div class="minis">${s.colors.map((c) => `<a class="mini" href="${esc(c.url)}" target="_blank" rel="noopener"><i class="${swatchClass(c.color)}"></i><span>${esc(c.color)}</span></a>`).join("")}
-          ${s.maps_url ? `<a class="mini pin" href="${esc(s.maps_url)}" target="_blank" rel="noopener" aria-label="Directions">📍</a>` : ""}</div>
+          ${s.maps_url ? `<a class="mini pin" href="${esc(s.maps_url)}" target="_blank" rel="noopener" aria-label="Directions">📍</a>` : ""}
+          <button class="rbtn${spinningStore === s.id ? " spin" : ""}" data-store="${esc(s.id)}" aria-label="Re-check ${esc(s.name)}"><span>↻</span></button></div>
       </div>`;
   }
   // In-stock stores pinned on top (nearest first); everything else stays in the default
@@ -473,7 +497,10 @@
     if (!stores.length) { $("grid").innerHTML = `<div class="empty">No stores within range yet. Start the PC runner or run the GitHub workflow once.</div>`; return; }
     const hot = stores.filter((s) => s.any), rest = stores.filter((s) => !s.any);
     renderStats(stores);
-    $("grid").className = "";
+    const isFresh = lastRenderedCheck && STATUS.checked_at !== lastRenderedCheck;
+    lastRenderedCheck = STATUS.checked_at;
+    $("grid").className = isFresh ? "fresh" : "";
+    if (isFresh) setTimeout(() => $("grid").classList.remove("fresh"), 1300);
     $("grid").innerHTML =
       (DEMO ? `<div class="demo-flag">Preview only · fake restock to show what an in-stock moment looks like · <a href="./">exit</a></div>` : "") +
       (hot.length ? `<div class="sec hot"><h2>In stock now · ${hot.length}</h2><span>nearest first</span></div>
@@ -551,7 +578,21 @@
     return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m ago`;
   }
   // PC runner publishes at least every ~2 min; GitHub backup every ~5-15 min.
-  let lastMood = "";
+  let lastMood = "", lastRenderedCheck = null, spinningStore = null;
+  function renderScan() {
+    if (!STATUS) return;
+    const sec = secondsAgo(STATUS.checked_at);
+    const live = STATUS.source !== "github" && !STATUS.error && sec < 300;
+    const period = live ? (STATUS.poll_seconds || 60) : 300;
+    const left = Math.max(0, period - sec);
+    const bar = $("scan");
+    bar.classList.toggle("due", checkingSince > 0 || left === 0);
+    $("scanFill").style.width = Math.min(100, (sec / period) * 100) + "%";
+    $("scanLeft").textContent = checkingSince ? "🔍 Checking Apple now…"
+      : left > 0 ? `${live ? "🖥️ PC" : "☁️ Backup"} checks again in ~${left}s` : "🔍 Checking any second…";
+    const n = STATUS.runner && STATUS.runner.checks;
+    $("scanRight").textContent = n ? `${n} checks this session` : "";
+  }
   function renderMascot(cls) {
     const stores = STATUS ? storesFrom(STATUS) : [];
     const hot = stores.filter((x) => x.any);
@@ -582,6 +623,7 @@
       : STATUS.error ? `last check failed · ${ago(sec)}` : `last Apple check ${tm(STATUS.checked_at)} · ${ago(sec)}`;
     if (STATUS.radius_miles) $("eyebrow").textContent = `Apple Stores · ${STATUS.radius_miles} mi · unlocked`;
     renderMascot(cls);
+    renderScan();
   }
 
   function toast(msg) {
@@ -618,7 +660,7 @@
     checkingSince = started;
     watchTimer = setInterval(async () => {
       await load();
-      if (STATUS && STATUS.checked_at !== before) { clearInterval(watchTimer); checkingSince = 0; renderHeader(); toast("Fresh check done ✓"); }
+      if (STATUS && STATUS.checked_at !== before) { clearInterval(watchTimer); checkingSince = 0; spinningStore = null; renderStock(storesFrom(STATUS)); renderHeader(); toast("Fresh check done ✓"); }
       else if (Date.now() - started > 180000) { clearInterval(watchTimer); checkingSince = 0; renderHeader(); toast("GitHub is slow · try again shortly"); }
     }, 8000);
   }
@@ -667,6 +709,18 @@
       updateRefreshLabel();
     }
   }
+
+  // ---------- per-store re-check (all stores are checked together; this kicks a fresh check) ----------
+  $("grid").addEventListener("click", (e) => {
+    const b = e.target.closest(".rbtn");
+    if (!b) return;
+    e.preventDefault();
+    spinningStore = b.dataset.store;
+    b.classList.add("spin");
+    load(true).finally(() => setTimeout(() => {
+      if (!checkingSince) { spinningStore = null; document.querySelectorAll(".rbtn.spin").forEach((x) => x.classList.remove("spin")); }
+    }, 800));
+  });
 
   // ---------- mascot tap tricks ----------
   const TRICKS = [
