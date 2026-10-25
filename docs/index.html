@@ -183,10 +183,27 @@
   @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
   .rbtn span { display: inline-block; animation: rot 3.5s linear infinite; will-change: transform; }
   .twirl .rbtn span { animation: rot .6s cubic-bezier(.4,1.6,.5,1) 1; }
+  /* "checked" wave: each store flips to a green tick, top to bottom */
+  .rbtn.done { border-color: var(--ok); background: var(--ok-soft); color: var(--ok); }
+  .rbtn.done span { display: none; }
+  .rbtn.done::after { content: "✓"; font-weight: 800; font-size: 14px; animation: pop .4s cubic-bezier(.3,1.8,.5,1); }
+  /* Cozy night sky: one fixed layer, a few twinkling stars */
+  body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none; opacity: .55;
+    background-image:
+      radial-gradient(1.5px 1.5px at 12% 18%, #fff, transparent), radial-gradient(1px 1px at 78% 9%, #fff, transparent),
+      radial-gradient(1.2px 1.2px at 52% 32%, #e8dcff, transparent), radial-gradient(1px 1px at 88% 41%, #fff, transparent),
+      radial-gradient(1.4px 1.4px at 22% 63%, #ffd6ec, transparent), radial-gradient(1px 1px at 66% 72%, #fff, transparent),
+      radial-gradient(1.3px 1.3px at 36% 88%, #e8dcff, transparent), radial-gradient(1px 1px at 93% 84%, #fff, transparent),
+      radial-gradient(1px 1px at 5% 92%, #fff, transparent), radial-gradient(1.2px 1.2px at 44% 6%, #ffd6ec, transparent);
+    animation: twinkleSky 6s ease-in-out infinite; }
+  @keyframes twinkleSky { 0%,100% { opacity: .55; } 50% { opacity: .25; } }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) body::before { display: none; } }
+  .foot { text-align: center; color: var(--faint); font-size: 12.5px; margin: 28px 0 6px; }
+  .foot b { color: var(--lilac); font-weight: 700; }
   body.scanning .rbtn span, .rbtn.spin span { animation: rot .9s linear infinite; }
   .banner.hot { animation: breathe 1.6s ease-in-out infinite; }
   @keyframes breathe { 0%,100% { box-shadow: 0 0 0 0 rgba(92,242,163,.0); } 50% { box-shadow: 0 0 24px 2px rgba(92,242,163,.28); } }
-  @media (prefers-reduced-motion: reduce) { section.enter, .intro *, .stat b.pop, .twirl .rbtn span, body.scanning .rbtn span, .rbtn span, .banner.hot { animation: none !important; } }
+  @media (prefers-reduced-motion: reduce) { body::before, .rbtn.done::after, section.enter, .intro *, .stat b.pop, .twirl .rbtn span, body.scanning .rbtn span, .rbtn span, .banner.hot { animation: none !important; } }
   /* Per-store refresh button */
   .rbtn { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: var(--card-2); color: var(--muted); font-size: 15px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; padding: 0; }
   .rbtn:active { transform: scale(.92); }
@@ -327,6 +344,7 @@
   </div>
   <div class="note" id="tokenNote">When your PC's data is old, Refresh asks GitHub to check Apple right now (about a minute). Use a fine-grained token for this repo only with <b>Actions: Read and write</b>. Stored on this device only.</div>
 </div>
+<div class="foot">🌙 <b>Duo Watch</b> · keeping watch so you don't have to · made with 💜</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -527,7 +545,13 @@
     lastRenderedCheck = STATUS.checked_at;
     const first = !introDone; introDone = true;
     $("grid").className = (isFresh ? "fresh twirl " : "") + (first ? "intro" : "");
-    if (isFresh) setTimeout(() => $("grid").classList.remove("fresh", "twirl"), 1300);
+    if (isFresh) {
+      setTimeout(() => $("grid").classList.remove("fresh", "twirl"), 1300);
+      requestAnimationFrame(() => document.querySelectorAll("#grid .rbtn").forEach((b, i) => {
+        setTimeout(() => b.classList.add("done"), 120 + i * 70);
+        setTimeout(() => b.classList.remove("done"), 1300 + i * 70);
+      }));
+    }
     if (first) setTimeout(() => $("grid").classList.remove("intro"), 900);
     $("grid").innerHTML =
       (DEMO ? `<div class="demo-flag">Preview only · fake restock to show what an in-stock moment looks like · <a href="./">exit</a></div>` : "") +
@@ -689,7 +713,7 @@
     checkingSince = started;
     watchTimer = setInterval(async () => {
       await load();
-      if (STATUS && STATUS.checked_at !== before) { clearInterval(watchTimer); checkingSince = 0; spinningStore = null; renderStock(storesFrom(STATUS)); renderHeader(); toast("Fresh check done ✓"); }
+      if (STATUS && STATUS.checked_at !== before) { clearInterval(watchTimer); checkingSince = 0; spinningStore = null; renderStock(storesFrom(STATUS)); renderHeader(); toast(`All ${storesFrom(STATUS).length} stores checked ✓`); }
       else if (Date.now() - started > 180000) { clearInterval(watchTimer); checkingSince = 0; renderHeader(); toast("GitHub is slow · try again shortly"); }
     }, 8000);
   }
