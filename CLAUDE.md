@@ -51,7 +51,7 @@ home-screen dashboard. Keep it free to run and dependency-light.
   dispatches check-stock.yml; with the PC live, Refresh dispatches it with input
   `force: true` (skips --defer-to-pc) when the last check is > 45s old, so a tap always means
   a real Apple check. Then it syncs every 8s until a fresh check lands.
-  Stats strip (in stock / last seen / restocks), per-store "restocked Xm ago" from history,
+  Chibi mascot in the header (moods: watching / happy when in stock / sleepy when stale; tap for random tricks with quips). Stats strip (in stock / last seen / restocks), per-store "restocked Xm ago" from history,
   green page glow while anything is in stock. "Patterns & news" tab renders `docs/news.json`
   ({updated_at, summary, items:[{title, summary, source, url, date}]}), refreshed daily at 7:47 AM ET
   by a scheduled Claude task (paraphrased summaries with links, never copied text) and links out to other trackers (Manzana, Apple Inventory Check, iPhone Stock
