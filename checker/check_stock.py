@@ -214,9 +214,11 @@ def _ascii(text: str) -> str:
     return text.encode("ascii", "ignore").decode("ascii")
 
 
-def alert_actions(buy_url: str, label: str = "Buy page") -> str:
-    """ntfy action buttons shown under the notification."""
-    return f"view, Open bag, {BAG_URL}; view, {label}, {buy_url}"
+def alert_actions(buy_url: str) -> str:
+    """ntfy action buttons. The buy page is a universal link the Apple Store app opens;
+    /shop/bag is not (Apple's app-site-association only claims shared bags), so the bag
+    button opens Safari and is the backup."""
+    return f"view, Apple Store app, {buy_url}; view, Bag in Safari, {BAG_URL}"
 
 
 def send_ntfy(topic: str, title: str, message: str, server: str, dry_run: bool,
@@ -251,7 +253,7 @@ def build_alerts(fresh: dict[str, list[dict]], models: list[dict]) -> list[tuple
         for s in stores:
             where = f"{s['name']}" + (f" ({s['distance']})" if s["distance"] else "")
             lines.append(f"{where}: {s['quote'] or 'Available for pickup'}")
-        lines.append("Tap: your bag → pick this store → Apple Pay.")
+        lines.append("Tap → Apple Store app → Bag → this store → Apple Pay.")
         alerts.append((title, "\n".join(lines), m.get("url") or BUY_URL))
     return alerts
 
@@ -280,7 +282,7 @@ def load_settings(config: dict) -> dict:
         "radius": float(radius) if radius else None,
         "topic": (os.environ.get("NTFY_TOPIC") or str(config.get("ntfy_topic", ""))).strip(),
         "server": os.environ.get("NTFY_SERVER", "https://ntfy.sh"),
-        "alert_click": str(config.get("alert_click", "bag")),   # "bag" or "product"
+        "alert_click": str(config.get("alert_click", "product")),   # "product" (opens app) or "bag" (Safari)
     }
 
 
@@ -341,7 +343,7 @@ def check_once(settings: dict, prev: dict, history: dict, *, source: str = "cli"
     for title, message, click in alerts:
         if settings["topic"] or dry_run:
             try:
-                tap = BAG_URL if settings.get("alert_click", "bag") == "bag" else click
+                tap = BAG_URL if settings.get("alert_click", "product") == "bag" else click
                 send_ntfy(settings["topic"], title, message, settings["server"], dry_run,
                           click=tap, actions=alert_actions(click))
             except Exception as e:

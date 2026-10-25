@@ -94,8 +94,10 @@ The app header shows **"Live · your PC checks every 60s"** with a green dot whi
 ## Fastest checkout from an alert
 1. **Tonight:** in the Apple Store app, add the iPhone Duo 256GB, your color, unlocked,
    no AppleCare to your **bag**, and make sure Apple Pay is set up.
-2. **When an alert hits:** tap it → your bag opens → choose the store from the alert →
-   Apple Pay → Face ID. The alert also has a "Buy page" button if your bag is empty.
+2. **When an alert hits:** tap it → the Apple Store app opens on your Duo → tap **Bag** →
+   **Check Out** → choose the store from the alert → Apple Pay → Face ID.
+   (Apple's app only opens product pages from links, not the bag; the alert's
+   "Bag in Safari" button is a backup.)
 
 ## Check now from the app
 Add a fine-grained GitHub token (this repo only, *Actions: Read and write*) in the box at

@@ -112,14 +112,14 @@ class AlertTests(unittest.TestCase):
 
 
 class ActionTests(unittest.TestCase):
-    def test_actions_open_bag_and_buy_page(self):
+    def test_actions_app_first_then_web_bag(self):
         a = cs.alert_actions("https://example.com/black")
-        self.assertIn("Open bag, https://www.apple.com/shop/bag", a)
-        self.assertIn("Buy page, https://example.com/black", a)
+        self.assertTrue(a.startswith("view, Apple Store app, https://example.com/black"))
+        self.assertIn("Bag in Safari, https://www.apple.com/shop/bag", a)
 
-    def test_default_click_is_bag(self):
-        self.assertEqual(cs.load_settings({})["alert_click"], "bag")
-        self.assertEqual(cs.load_settings({"alert_click": "product"})["alert_click"], "product")
+    def test_default_click_opens_app(self):
+        self.assertEqual(cs.load_settings({})["alert_click"], "product")
+        self.assertEqual(cs.load_settings({"alert_click": "bag"})["alert_click"], "bag")
 
 
 class HistoryTests(unittest.TestCase):

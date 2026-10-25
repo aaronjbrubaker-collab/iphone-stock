@@ -10,8 +10,9 @@ home-screen dashboard. Keep it free to run and dependency-light.
   parses `body.stores[].partsAvailability[part].pickupDisplay` ("available"/"unavailable"),
   filters stores by `storedistance` (miles) <= `radius_miles`,
   writes `status.json` + `history.json` (restock "in" / sell-out "out" events, last 500),
-  and POSTs an urgent ntfy push (tap opens the Apple bag by default, `alert_click: "product"`
-  opens the buy page; action buttons "Open bag" + "Buy page") for stores that
+  and POSTs an urgent ntfy push (tap opens the color's buy page, which the Apple Store app
+  claims as a universal link; `alert_click: "bag"` opens /shop/bag, which the app does NOT
+  claim, so it opens Safari; buttons "Apple Store app" + "Bag in Safari") for stores that
   newly became available (compares against the previous status.json).
   `--test-alert` sends a test push and exits.
 - `local_runner.py` (+ `start-runner.bat`): PC runner on the owner's always-on Windows PC.
