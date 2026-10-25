@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+status.json
+prev_status.json
+publish/
+.DS_Store

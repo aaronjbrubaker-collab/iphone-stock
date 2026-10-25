@@ -1,0 +1,9 @@
+{
+  "zip": "",
+  "radius_miles": 25,
+  "max_stores": 12,
+  "models": [
+    { "label": "iPhone Duo 256GB Night Sky", "part": "MK1F4LL/A" },
+    { "label": "iPhone Duo 256GB Star White", "part": "MK1E4LL/A" }
+  ]
+}

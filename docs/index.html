@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>iPhone Stock</title>
+<meta name="theme-color" content="#0b0d10" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="iPhone Stock">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+  :root {
+    --bg: #f5f5f7; --card: #ffffff; --text: #1d1d1f; --muted: #6e6e73;
+    --line: #e5e5ea; --ok: #1a8f3c; --ok-bg: #e3f6e8; --no: #8e8e93; --no-bg: #f0f0f3;
+    --warn: #a15c00; --warn-bg: #fff3dd; --accent: #0071e3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0b0d10; --card: #16191e; --text: #f5f5f7; --muted: #9a9aa0;
+      --line: #262a31; --ok: #4ade80; --ok-bg: #12301c; --no: #8e8e93; --no-bg: #1e2228;
+      --warn: #fbbf24; --warn-bg: #33270d; --accent: #4da3ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font: 16px/1.4 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    padding: max(16px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+    max-width: 640px; margin: 0 auto;
+  }
+  header { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin: 8px 0 16px; }
+  h1 { font-size: 28px; letter-spacing: -0.02em; margin: 0; }
+  .meta { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  button {
+    font: inherit; font-size: 14px; font-weight: 600; color: var(--accent); background: var(--card);
+    border: 1px solid var(--line); border-radius: 999px; padding: 8px 14px; cursor: pointer;
+  }
+  .banner { border-radius: 12px; padding: 12px 14px; font-size: 14px; margin-bottom: 12px; }
+  .banner.warn { background: var(--warn-bg); color: var(--warn); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; margin-bottom: 14px; overflow: hidden; }
+  .card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 16px; }
+  .card-head h2 { font-size: 17px; margin: 0; }
+  .part { color: var(--muted); font-size: 12px; font-family: ui-monospace, Menlo, monospace; }
+  .pill { font-size: 13px; font-weight: 600; border-radius: 999px; padding: 4px 10px; white-space: nowrap; }
+  .pill.ok { color: var(--ok); background: var(--ok-bg); }
+  .pill.no { color: var(--no); background: var(--no-bg); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; justify-content: space-between; gap: 12px; padding: 11px 16px; border-top: 1px solid var(--line); font-size: 15px; }
+  li .where small { display: block; color: var(--muted); font-size: 12px; }
+  li .q { text-align: right; font-size: 13px; color: var(--muted); }
+  li.avail .q { color: var(--ok); font-weight: 600; }
+  .empty { color: var(--muted); text-align: center; padding: 48px 16px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>iPhone Stock</h1>
+      <div class="meta" id="meta">Loading…</div>
+    </div>
+    <button id="refresh" type="button">Refresh</button>
+  </header>
+  <div id="banners"></div>
+  <main id="models"></main>
+
+<script>
+  // Where status.json lives. On GitHub Pages (user.github.io/repo) it reads the
+  // "status" branch of the same repo. Override with ?src=<url>; falls back to ./status.json.
+  function statusUrl() {
+    const qs = new URLSearchParams(location.search);
+    if (qs.get("src")) return qs.get("src");
+    const host = location.hostname;
+    if (host.endsWith(".github.io")) {
+      const user = host.split(".")[0];
+      const repo = location.pathname.split("/").filter(Boolean)[0];
+      if (repo) return `https://raw.githubusercontent.com/${user}/${repo}/status/status.json`;
+    }
+    return "status.json";
+  }
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  function ago(iso) {
+    if (!iso) return "never";
+    const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins} min ago`;
+    const h = Math.round(mins / 60);
+    return h < 24 ? `${h} hr ago` : `${Math.round(h / 24)} days ago`;
+  }
+
+  function render(data) {
+    $("meta").textContent = `Checked ${ago(data.checked_at)}`;
+    const banners = [];
+    if (data.error) {
+      banners.push(`Last check failed: ${esc(data.error)}` +
+        (data.last_success_at ? ` Showing data from ${esc(ago(data.last_success_at))}.` : ""));
+    }
+    const ageMin = (Date.now() - new Date(data.checked_at).getTime()) / 60000;
+    if (ageMin > 30) banners.push("No check in over 30 minutes. The scheduled job may be paused; check the Actions tab on GitHub.");
+    $("banners").innerHTML = banners.map((b) => `<div class="banner warn">${b}</div>`).join("");
+
+    const models = data.models || [];
+    if (!models.length) {
+      $("models").innerHTML = `<div class="empty">No models yet. Add part numbers to <code>config.json</code>.</div>`;
+      return;
+    }
+    $("models").innerHTML = models.map((m) => {
+      const count = m.stores.filter((s) => s.available).length;
+      const pill = count
+        ? `<span class="pill ok">${count} store${count > 1 ? "s" : ""}</span>`
+        : `<span class="pill no">Sold out nearby</span>`;
+      const rows = m.stores
+        .slice()
+        .sort((a, b) => Number(b.available) - Number(a.available))
+        .map((s) => `
+          <li class="${s.available ? "avail" : ""}">
+            <span class="where">${esc(s.name)}<small>${esc([s.city, s.distance].filter(Boolean).join(" · "))}</small></span>
+            <span class="q">${s.available ? esc(s.quote || "Available") : "Unavailable"}</span>
+          </li>`).join("");
+      return `
+        <section class="card">
+          <div class="card-head">
+            <div><h2>${esc(m.label)}</h2><div class="part">${esc(m.part)}</div></div>
+            ${pill}
+          </div>
+          <ul>${rows || `<li><span class="where">No nearby stores returned</span></li>`}</ul>
+        </section>`;
+    }).join("") +
+    `<p class="meta" style="text-align:center"><a href="https://www.apple.com/shop/buy-iphone" target="_blank" rel="noopener">Open Apple Store</a></p>`;
+  }
+
+  async function load() {
+    try {
+      const url = statusUrl();
+      const res = await fetch(url + (url.includes("?") ? "&" : "?") + "t=" + Date.now(), { cache: "no-store" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      render(await res.json());
+    } catch (e) {
+      $("meta").textContent = "Couldn't load status";
+      $("banners").innerHTML = `<div class="banner warn">No status yet (${esc(e.message)}). Run the workflow once from the GitHub Actions tab.</div>`;
+    }
+  }
+
+  $("refresh").addEventListener("click", load);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
+  setInterval(load, 60000);
+  load();
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+</script>
+</body>
+</html>

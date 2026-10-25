@@ -1,0 +1,120 @@
+{
+ "head": {
+  "status": "200",
+  "data": {}
+ },
+ "body": {
+  "stores": [
+   {
+    "storeName": "West 14th Street",
+    "storeNumber": "R250",
+    "city": "New York",
+    "state": "NY",
+    "storedistance": 0.66,
+    "storeDistanceWithUnit": "0.66 mi",
+    "partsAvailability": {
+     "MK1F4LL/A": {
+      "partNumber": "MK1F4LL/A",
+      "pickupDisplay": "unavailable",
+      "pickupSearchQuote": "Currently unavailable",
+      "pickupType": "In-Store Pickup"
+     },
+     "MK1E4LL/A": {
+      "partNumber": "MK1E4LL/A",
+      "pickupDisplay": "unavailable",
+      "pickupSearchQuote": "Currently unavailable",
+      "pickupType": "In-Store Pickup"
+     }
+    }
+   },
+   {
+    "storeName": "Grand Central",
+    "storeNumber": "R415",
+    "city": "New York",
+    "state": "NY",
+    "storedistance": 1.35,
+    "storeDistanceWithUnit": "1.35 mi",
+    "partsAvailability": {
+     "MK1F4LL/A": {
+      "partNumber": "MK1F4LL/A",
+      "pickupDisplay": "unavailable",
+      "pickupSearchQuote": "Currently unavailable",
+      "pickupType": "In-Store Pickup"
+     },
+     "MK1E4LL/A": {
+      "partNumber": "MK1E4LL/A",
+      "pickupDisplay": "unavailable",
+      "pickupSearchQuote": "Currently unavailable",
+      "pickupType": "In-Store Pickup"
+     }
+    }
+   },
+   {
+    "storeName": "SoHo",
+    "storeNumber": "R032",
+    "city": "New York",
+    "state": "NY",
+    "storedistance": 1.77,
+    "storeDistanceWithUnit": "1.77 mi",
+    "partsAvailability": {
+     "MK1F4LL/A": {
+      "partNumber": "MK1F4LL/A",
+      "pickupDisplay": "unavailable",
+      "pickupSearchQuote": "Currently unavailable",
+      "pickupType": "In-Store Pickup"
+     },
+     "MK1E4LL/A": {
+      "partNumber": "MK1E4LL/A",
+      "pickupDisplay": "unavailable",
+      "pickupSearchQuote": "Currently unavailable",
+      "pickupType": "In-Store Pickup"
+     }
+    }
+   },
+   {
+    "storeName": "American Dream",
+    "storeNumber": "R755",
+    "city": "East Rutherford",
+    "state": "NJ",
+    "storedistance": 5.29,
+    "storeDistanceWithUnit": "5.29 mi",
+    "partsAvailability": {
+     "MK1F4LL/A": {
+      "partNumber": "MK1F4LL/A",
+      "pickupDisplay": "unavailable",
+      "pickupSearchQuote": "Currently unavailable",
+      "pickupType": "In-Store Pickup"
+     },
+     "MK1E4LL/A": {
+      "partNumber": "MK1E4LL/A",
+      "pickupDisplay": "unavailable",
+      "pickupSearchQuote": "Currently unavailable",
+      "pickupType": "In-Store Pickup"
+     }
+    }
+   },
+   {
+    "storeName": "The Mall at Bay Plaza",
+    "storeNumber": "R753",
+    "city": "Bronx",
+    "state": "NY",
+    "storedistance": 12.07,
+    "storeDistanceWithUnit": "12.07 mi",
+    "partsAvailability": {
+     "MK1F4LL/A": {
+      "partNumber": "MK1F4LL/A",
+      "pickupDisplay": "unavailable",
+      "pickupSearchQuote": "Currently unavailable",
+      "pickupType": "In-Store Pickup"
+     },
+     "MK1E4LL/A": {
+      "partNumber": "MK1E4LL/A",
+      "pickupDisplay": "unavailable",
+      "pickupSearchQuote": "Currently unavailable",
+      "pickupType": "In-Store Pickup"
+     }
+    }
+   }
+  ]
+ }
+}
