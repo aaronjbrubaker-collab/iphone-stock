@@ -512,14 +512,14 @@
     if (!btn.disabled) btn.textContent = (!isLive() && store.get("ghToken") && REPO) ? "Check now" : "Refresh";
   }
   let lastDispatch = 0, watchTimer = null;
-  async function dispatchCheck() {
+  async function dispatchCheck(force = false) {
     const tok = store.get("ghToken");
     if (!tok || !REPO) return "no-token";
     if (Date.now() - lastDispatch < 120000) return "recent";
     const r = await fetch(`https://api.github.com/repos/${REPO}/actions/workflows/check-stock.yml/dispatches`, {
       method: "POST",
       headers: { Authorization: `Bearer ${tok}`, Accept: "application/vnd.github+json" },
-      body: JSON.stringify({ ref: "main" }),
+      body: JSON.stringify(force ? { ref: "main", inputs: { force: "true" } } : { ref: "main" }),
     });
     if (r.status === 204) { lastDispatch = Date.now(); return "ok"; }
     return r.status === 401 || r.status === 403 || r.status === 404 ? "bad-token" : "error";
@@ -550,7 +550,16 @@
         renderBanner(stores); renderStock(stores); renderChanges(); renderPatterns();
         document.title = stores.some((s) => s.any) ? "IN STOCK · Duo Watch" : "Duo Watch";
       }
-      if (manual && !isLive() && REPO) {
+      const age = secondsAgo(STATUS.checked_at);
+      if (manual && REPO && store.get("ghToken") && (!isLive() || age > 45)) {
+        const res = await dispatchCheck(isLive());
+        if (res === "ok") { toast(`Checking Apple right now via GitHub · last check was ${ago(age)}`); watchForFresh(STATUS.checked_at); }
+        else if (res === "recent") toast("A fresh check is already running · hang tight");
+        else if (res === "bad-token") toast("GitHub token didn't work · check it below");
+        else toast("Couldn't start a check · try again");
+      } else if (manual && isLive()) {
+        toast(changed ? `Updated · checked ${ago(age)}` : `Already current · checked ${ago(age)} (PC checks every ${STATUS.poll_seconds || 60}s)`);
+      } else if (manual && !isLive() && REPO) {
         const res = await dispatchCheck();
         if (res === "ok") { toast("Checking Apple via GitHub · ~1 min"); watchForFresh(STATUS.checked_at); }
         else if (res === "recent") toast("Check already running · hang tight");

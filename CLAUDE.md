@@ -48,7 +48,9 @@ home-screen dashboard. Keep it free to run and dependency-light.
   restock, labeled TEST); the ntfy topic is stored in the viewer's localStorage only.
   Optional GitHub token box (fine-grained, Actions read/write, localStorage only): when
   data isn't live (error, GitHub-sourced, or > 5 min old) Refresh becomes "Check now" and
-  dispatches check-stock.yml, then syncs every 8s until the fresh check lands.
+  dispatches check-stock.yml; with the PC live, Refresh dispatches it with input
+  `force: true` (skips --defer-to-pc) when the last check is > 45s old, so a tap always means
+  a real Apple check. Then it syncs every 8s until a fresh check lands.
   Stats strip (in stock / last seen / restocks), per-store "restocked Xm ago" from history,
   green page glow while anything is in stock. "Patterns & news" tab renders `docs/news.json`
   ({updated_at, summary, items:[{title, summary, source, url, date}]}), refreshed twice daily

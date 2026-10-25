@@ -6,6 +6,11 @@ on:
   schedule:
     - cron: "2-59/5 * * * *"  # every 5 min, offset from :00 (GitHub delays busy slots)
   workflow_dispatch:         # lets you run it manually from the Actions tab
+    inputs:
+      force:
+        description: "Check even if the PC runner is live (app's Refresh button)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write            # needed to publish status.json to the "status" branch
@@ -39,7 +44,8 @@ jobs:
           APPLE_ZIP: ${{ secrets.APPLE_ZIP }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
         run: >
-          python checker/check_stock.py --config config.json --source github --defer-to-pc 300
+          python checker/check_stock.py --config config.json --source github
+          --defer-to-pc ${{ github.event.inputs.force == 'true' && '0' || '300' }}
           --prev prev_status.json --out status.json
           --history-in prev_history.json --history-out history.json
 
