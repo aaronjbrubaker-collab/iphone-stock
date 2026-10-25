@@ -40,6 +40,7 @@ import check_stock as cs  # noqa: E402
 DEFAULTS = {"poll_seconds": 60, "heartbeat_seconds": 60, "nag_minutes": 2, "nag_max": 15}
 MIN_POLL = 45          # faster than this gets your connection rate-limited by Apple (HTTP 541)
 MAX_BACKOFF = 900      # when Apple pushes back, wait up to 15 min between tries
+MAX_ADAPTIVE_POLL = 120  # each rate-limit episode slows normal polling by 25%, up to this
 API = "https://api.github.com"
 
 
@@ -279,7 +280,10 @@ def main(argv: list[str] | None = None) -> int:
             sig = availability_signature(status)
             changed = sig != last_sig
             note = ""
-            if publisher and (changed or t0 - last_publish >= heartbeat):
+            # While erroring, only publish the change into the error state (so the app and the
+            # GitHub backup know); skip heartbeats so the backup's good results aren't overwritten.
+            due = t0 - last_publish >= heartbeat and not status.get("error")
+            if publisher and (changed or due):
                 try:
                     publisher.publish(
                         {"status.json": json.dumps(status, indent=1), "history.json": json.dumps(history, indent=1)},
@@ -298,6 +302,11 @@ def main(argv: list[str] | None = None) -> int:
                 errors_in_row = 0
             else:
                 errors_in_row += 1
+                # Each new Apple rate-limit episode: check a bit less often from now on.
+                if errors_in_row == 1 and "541" in (status.get("error") or "") and poll < MAX_ADAPTIVE_POLL:
+                    poll = min(MAX_ADAPTIVE_POLL, int(poll * 1.25))
+                    status["poll_seconds"] = poll
+                    print(f"           Apple rate limit hit; slowing to every {poll}s once it clears")
             save_json("prev_status.json", prev if prev else status)
             save_json("history.local.json", history)
 
