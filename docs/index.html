@@ -84,6 +84,24 @@
   .cta.accent { background: var(--accent); color: var(--accent-ink); }
   .cta.ok { background: var(--ok); color: var(--ok-ink); }
 
+  /* Sections */
+  .sec { display: flex; justify-content: space-between; align-items: baseline; margin: 18px 2px 10px; }
+  .sec h2 { margin: 0; }
+  .sec span { color: var(--faint); font-size: 12px; }
+  .sec.hot h2 { color: var(--ok); }
+  /* Compact sold-out list */
+  .watch { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  .wrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 14px; border-top: 1px solid var(--line); color: var(--text); }
+  .wrow:first-child { border-top: 0; }
+  .wrow b { font-size: 14.5px; display: block; }
+  .wrow small { color: var(--muted); font-size: 12px; }
+  .minis { display: flex; gap: 6px; flex: none; }
+  .mini { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 600; color: var(--faint); background: var(--card-2); border: 1px solid var(--line); padding: 4px 8px; border-radius: 999px; }
+  .mini i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .mini i.night { background: #2c3650; box-shadow: 0 0 0 1px #4a5675 inset; }
+  .mini i.white { background: #f4f1ea; box-shadow: 0 0 0 1px #c9c3b6 inset; }
+  @media (max-width: 380px) { .mini span { display: none; } }
+  .demo-flag { background: var(--accent-soft); color: var(--accent); border: 1px dashed var(--accent); border-radius: 12px; padding: 8px 12px; font-size: 12.5px; margin-bottom: 12px; text-align: center; }
   /* Store grid */
   .grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
   @media (min-width: 640px) { .grid { grid-template-columns: repeat(2, 1fr); } }
@@ -162,11 +180,11 @@
   </section>
 
   <div class="alerts">
-    <span>Alerts topic</span>
-    <input id="topic" placeholder="your ntfy topic" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <span>Your ntfy topic</span>
+    <input id="topic" placeholder="topic name from the ntfy app, e.g. hass-…" autocomplete="off" autocapitalize="off" spellcheck="false">
     <button class="icon-btn" id="testPush" type="button">Send test push</button>
   </div>
-  <div class="note" id="pushNote">Saved on this device only. Real alerts come from your PC runner (or the GitHub backup).</div>
+  <div class="note" id="pushNote">Type the exact topic you subscribed to in the ntfy app (not a message). Saved on this device only. <a href="?demo=1">Preview what a restock looks like</a></div>
   <div class="alerts">
     <span>GitHub token</span>
     <input id="ghToken" type="password" placeholder="optional · lets Refresh run a fresh check" autocomplete="off" autocapitalize="off" spellcheck="false">
@@ -254,7 +272,16 @@
   let STATUS = null, HISTORY = { events: [] };
 
   // ---------- derived ----------
+  const DEMO = QS.get("demo") === "1";
+  function applyDemo(status) {
+    if (!DEMO || !status || !status.models) return status;
+    const copy = JSON.parse(JSON.stringify(status));
+    const m = copy.models[0], st = m && m.stores[2];
+    if (st) { st.available = true; st.quote = "Available Today"; }
+    return copy;
+  }
   function storesFrom(status) {
+    status = applyDemo(status);
     const map = new Map();
     for (const m of status.models || []) {
       for (const s of m.stores || []) {
@@ -298,14 +325,13 @@
     $("banner").innerHTML = html;
   }
 
-  function renderStock(stores) {
-    if (!stores.length) { $("grid").innerHTML = `<div class="empty">No stores within range yet. Run the workflow once from the GitHub Actions tab.</div>`; return; }
-    $("grid").innerHTML = stores.map((s) => `
-      <article class="store ${s.any ? "in" : ""}">
+  function storeCard(s) {
+    return `
+      <article class="store in">
         <h3>${esc(s.name)}</h3>
         <div class="chips">
           ${s.distance ? `<span class="chip">${esc(s.distance)} away</span>` : ""}
-          <span class="chip ${s.any ? "ok" : ""}">${s.any ? "Available now" : "None available"}</span>
+          <span class="chip ok">Available now</span>
         </div>
         ${s.address ? `<a class="addr" href="${esc(s.maps_url)}" target="_blank" rel="noopener">${esc(s.address)}</a>` : `<span class="addr">${esc(s.city)}</span>`}
         ${s.phone ? `<a class="phone" href="tel:${esc(s.phone.replace(/[^0-9+]/g, ""))}">${esc(s.phone)}</a>` : ""}
@@ -318,7 +344,28 @@
                 : `<span class="state no">Sold out</span>`}
             </div>`).join("")}
         </div>
-      </article>`).join("");
+      </article>`;
+  }
+  function watchRow(s) {
+    const sub = [s.distance, s.city].filter(Boolean).join(" · ");
+    return `
+      <a class="wrow" href="${esc(s.maps_url || "#")}" target="_blank" rel="noopener">
+        <div><b>${esc(s.name)}</b><small>${esc(sub)}</small></div>
+        <div class="minis">${s.colors.map((c) => `<span class="mini"><i class="${swatchClass(c.color)}"></i><span>${esc(c.color)}</span></span>`).join("")}</div>
+      </a>`;
+  }
+  // In-stock stores pinned on top (nearest first); everything else stays in the default
+  // nearest-first order. When stock disappears the store drops back into its usual spot.
+  function renderStock(stores) {
+    if (!stores.length) { $("grid").innerHTML = `<div class="empty">No stores within range yet. Start the PC runner or run the GitHub workflow once.</div>`; return; }
+    const hot = stores.filter((s) => s.any), rest = stores.filter((s) => !s.any);
+    $("grid").className = "";
+    $("grid").innerHTML =
+      (DEMO ? `<div class="demo-flag">Preview only · fake restock to show what an in-stock moment looks like · <a href="./">exit</a></div>` : "") +
+      (hot.length ? `<div class="sec hot"><h2>In stock now · ${hot.length}</h2><span>nearest first</span></div>
+                     <div class="grid">${hot.map(storeCard).join("")}</div>` : "") +
+      (rest.length ? `<div class="sec"><h2>${hot.length ? "Sold out" : "Watching"} · ${rest.length} stores</h2><span>nearest first</span></div>
+                      <div class="watch">${rest.map(watchRow).join("")}</div>` : "");
   }
 
   function renderChanges() {
@@ -480,17 +527,27 @@
   $("topic").value = store.get("ntfyTopic") || "";
   $("testPush").addEventListener("click", async () => {
     const topic = $("topic").value.trim();
-    if (!topic) { $("pushNote").textContent = "Enter your ntfy topic first."; return; }
+    const note = $("pushNote");
+    if (!topic) { note.textContent = "Enter your ntfy topic first: the exact name you subscribed to in the ntfy app."; return; }
+    if (!/^[A-Za-z0-9_-]{6,64}$/.test(topic) || ["test", "alerts", "iphone"].includes(topic.toLowerCase())) {
+      note.textContent = `"${topic}" doesn't look like your topic. Use the exact topic name from the ntfy app (letters, numbers, dashes), not a message.`;
+      return;
+    }
     store.set("ntfyTopic", topic);
-    $("pushNote").textContent = "Sending…";
+    note.textContent = "Sending…";
+    const buy = (STATUS && STATUS.models && STATUS.models[0] && STATUS.models[0].url) || "https://www.apple.com/shop/buy-iphone";
     try {
       const r = await fetch("https://ntfy.sh/" + encodeURIComponent(topic), {
         method: "POST",
-        headers: { "Title": "Test: Duo Watch alerts are working", "Tags": "iphone,white_check_mark", "Priority": "high" },
-        body: "If you can read this on your phone, restock alerts will reach you.",
+        headers: {
+          "Title": "TEST - IN STOCK: iPhone Duo 256GB (not real)",
+          "Tags": "iphone,rotating_light", "Priority": "urgent", "Click": buy,
+          "Actions": `view, Apple Store app, ${buy}; view, Bag in Safari, https://www.apple.com/shop/bag`,
+        },
+        body: "This is exactly how a restock alert looks. Tap it to check it opens the Apple Store app.",
       });
-      $("pushNote").textContent = r.ok ? "Sent. Check your phone." : `ntfy returned ${r.status}.`;
-    } catch (e) { $("pushNote").textContent = "Couldn't reach ntfy: " + e.message; }
+      note.textContent = r.ok ? `Sent to "${topic}". Check your phone in a few seconds.` : `ntfy returned ${r.status}. Try again.`;
+    } catch (e) { note.textContent = "Couldn't reach ntfy: " + e.message; }
   });
 
   $("refresh").addEventListener("click", () => load(true));

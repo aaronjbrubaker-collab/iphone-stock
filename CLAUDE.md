@@ -29,7 +29,9 @@ home-screen dashboard. Keep it free to run and dependency-light.
   branch containing `status.json` + `history.json` (keeps main history clean).
 - `.github/workflows/test-alert.yml`: manual "Send test alert" workflow.
 - `docs/`: static PWA "Duo Watch" served by GitHub Pages from `main:/docs`. Tabs:
-  Stock (store cards, one row per color), Recent changes, Patterns (restocks by hour /
+  Stock (in-stock stores pinned on top as big cards with Buy buttons; the rest as a compact
+  nearest-first list, so a store drops back to its usual spot when it sells out; `?demo=1`
+  fakes one restock client-side for previewing), Recent changes, Patterns (restocks by hour /
   store). Fetches `status.json` + `history.json` from
   `raw.githubusercontent.com/<user>/<repo>/status/`, deriving user/repo from the Pages
   URL. Resolves the branch head sha via api.github.com (conditional request, 304s are
@@ -37,7 +39,8 @@ home-screen dashboard. Keep it free to run and dependency-light.
   refresh look broken). Falls back to the branch URL if the API is rate limited.
   Syncs every 20s while open, live "updated Xs ago", pull to refresh, source badge.
   `?repo=owner/name` overrides (handy for local testing), `?src=<url>` for local files. Has a
-  "Send test push" box; the ntfy topic is stored in the viewer's localStorage only.
+  "Send test push" box (validates the topic name; sends an alert identical to a real
+  restock, labeled TEST); the ntfy topic is stored in the viewer's localStorage only.
   Optional GitHub token box (fine-grained, Actions read/write, localStorage only): when
   data isn't live (error, GitHub-sourced, or > 5 min old) Refresh becomes "Check now" and
   dispatches check-stock.yml, then syncs every 8s until the fresh check lands.
