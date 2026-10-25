@@ -1,0 +1,34 @@
+{
+  "updated_at": "2026-10-25T07:00:00Z",
+  "summary": "Pickup restocks are rare and short. The last US pickup window (Oct 24) lasted about five minutes, so instant alerts matter more than timing guesses.",
+  "items": [
+    {
+      "title": "Store pickup briefly reopened in the US and Canada",
+      "summary": "Pickup slots appeared for roughly five minutes around 8:10 AM ET on Oct 24; most stores showed nothing.",
+      "source": "MacRumors",
+      "url": "https://www.macrumors.com/2026/10/24/apple-store-pickup-iphone-duo-us/",
+      "date": "2026-10-24"
+    },
+    {
+      "title": "Restock timing is unpredictable",
+      "summary": "Reports say store-level restocks often land between noon and 6 PM local time and sell out within minutes.",
+      "source": "Geo News",
+      "url": "https://www.geo.tv/latest/688143-when-will-apple-restock-iphone-duo-again-heres-everything-to-know",
+      "date": "2026-10-24"
+    },
+    {
+      "title": "Tracker data points to late mornings",
+      "summary": "Manzana Tracker logged 15 US restocks since Oct 16, most between 10 AM and 1 PM ET, often on Saturdays.",
+      "source": "Manzana Tracker",
+      "url": "https://manzanatracker.com/stock/iphone-duo",
+      "date": "2026-10-25"
+    },
+    {
+      "title": "Delivery estimates stretch into January",
+      "summary": "Online orders were showing delivery as late as January 2027 shortly after preorders opened.",
+      "source": "MacRumors",
+      "url": "https://www.macrumors.com/2026/10/16/iphone-duo-preorder-shipping-wait-times/",
+      "date": "2026-10-16"
+    }
+  ]
+}

@@ -50,8 +50,9 @@ home-screen dashboard. Keep it free to run and dependency-light.
   data isn't live (error, GitHub-sourced, or > 5 min old) Refresh becomes "Check now" and
   dispatches check-stock.yml, then syncs every 8s until the fresh check lands.
   Stats strip (in stock / last seen / restocks), per-store "restocked Xm ago" from history,
-  green page glow while anything is in stock. Patterns tab has a dated "What we know from
-  the web" card (manually written summary with source links) and links out to other trackers (Manzana, Apple Inventory Check, iPhone Stock
+  green page glow while anything is in stock. "Patterns & news" tab renders `docs/news.json`
+  ({updated_at, summary, items:[{title, summary, source, url, date}]}), refreshed twice daily
+  by a scheduled Claude task (paraphrased summaries with links, never copied text) and links out to other trackers (Manzana, Apple Inventory Check, iPhone Stock
   Checker); their data is not scraped or imported.
 - `config.json`: models (`label`, `color`, `part`, `url`), `zip`, `radius_miles`, `max_stores`,
   optional `ntfy_topic`. Env vars `APPLE_ZIP` / `NTFY_TOPIC` (repo secrets) override.

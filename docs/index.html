@@ -46,6 +46,8 @@
   .stat.hot b { color: var(--ok); }
   .wrow small em { font-style: normal; color: var(--accent); }
   /* Insights */
+  a.row { color: var(--text); } a.row b { color: var(--text); }
+  .row > div { min-width: 0; } .row .tag { flex: none; }
   .insight { padding: 14px 16px; border-top: 1px solid var(--line); }
   .insight:first-child { border-top: 0; }
   .insight b { display: block; margin-bottom: 2px; }
@@ -163,7 +165,7 @@
   .alerts input { flex: 1 1 200px; min-width: 0; background: var(--card); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 9px 14px; font: inherit; font-size: 13px; }
   .note { color: var(--faint); font-size: 12px; margin-top: 8px; }
   [hidden] { display: none !important; }
-  body:not([data-tab="stock"]) .banner.calm, body:not([data-tab="stock"]) .stats { display: none; }
+  body:not([data-tab="stock"]) #banner .banner.calm, body:not([data-tab="stock"]) .stats { display: none; }
 </style>
 </head>
 <body data-tab="stock">
@@ -189,7 +191,7 @@
   <nav class="tabs" role="tablist">
     <button class="tab" role="tab" data-tab="stock" aria-selected="true">Stock</button>
     <button class="tab" role="tab" data-tab="changes" aria-selected="false">Recent changes</button>
-    <button class="tab" role="tab" data-tab="patterns" aria-selected="false">Patterns</button>
+    <button class="tab" role="tab" data-tab="patterns" aria-selected="false">Patterns &amp; news</button>
   </nav>
 
   <div id="banner"></div>
@@ -419,13 +421,24 @@
       : `<div class="empty">No restocks seen yet. Every restock and sell-out at these stores will be logged here.</div>`;
   }
 
-  const WEB_INSIGHTS = `
-      <h2>What we know from the web · as of Oct 25</h2>
-      <div class="panel">
-        <div class="insight"><b>Restocks are rare and vanish in minutes</b><span>Pickup briefly reopened in the US on Oct 24, for about 5 minutes around 8:10 AM ET. Most stores had nothing.</span><br><a href="https://www.macrumors.com/2026/10/24/apple-store-pickup-iphone-duo-us/" target="_blank" rel="noopener">MacRumors ↗</a></div>
-        <div class="insight"><b>Timing reports differ, so keep alerts on all day</b><span>Manzana Tracker logged 15 US restocks since Oct 16, most between 10 AM and 1 PM ET, often Saturdays. Other reports say store-level restocks often land noon to 6 PM local.</span><br><a href="https://manzanatracker.com/stock/iphone-duo" target="_blank" rel="noopener">Manzana ↗</a> · <a href="https://www.geo.tv/latest/688143-when-will-apple-restock-iphone-duo-again-heres-everything-to-know" target="_blank" rel="noopener">Geo News ↗</a></div>
-        <div class="insight"><b>Delivery orders are slow</b><span>Online delivery estimates have been reported as far out as late January 2027, which is why pickup restocks matter.</span><br><a href="https://www.macrumors.com/2026/10/16/iphone-duo-preorder-shipping-wait-times/" target="_blank" rel="noopener">MacRumors ↗</a></div>
-      </div>`;
+  // News is refreshed by a scheduled task that writes docs/news.json (served with the app).
+  let NEWS = null;
+  async function loadNews() {
+    try {
+      const r = await fetch("news.json?t=" + Date.now(), { cache: "no-store" });
+      if (r.ok) { NEWS = await r.json(); renderPatterns(); }
+    } catch {}
+  }
+  function newsHTML() {
+    if (!NEWS || !Array.isArray(NEWS.items) || !NEWS.items.length) return "";
+    const items = NEWS.items.slice(0, 8).map((n) => `
+        <div class="insight"><b>${esc(n.title)}</b><span>${esc(n.summary)}</span><br>
+          <a href="${esc(n.url)}" target="_blank" rel="noopener">${esc(n.source)} ↗</a>${n.date ? ` <span style="font-size:12px">· ${esc(n.date)}</span>` : ""}</div>`).join("");
+    return `
+      <h2>Stock news · updated ${esc(NEWS.updated_at ? shortAgo(NEWS.updated_at) : "")}</h2>
+      ${NEWS.summary ? `<div class="banner calm" style="display:block"><small style="color:var(--text)">${esc(NEWS.summary)}</small></div>` : ""}
+      <div class="panel">${items}</div>`;
+  }
 
   const OTHER_TRACKERS = `
       <h2>History from other trackers</h2>
@@ -438,7 +451,7 @@
   function renderPatterns() {
     const r = restocks();
     if (!r.length) {
-      $("patterns").innerHTML = `<div class="panel"><div class="empty">Your own patterns build up as your tracker sees restocks: which stores restock most and at what time of day.</div></div>${WEB_INSIGHTS}${OTHER_TRACKERS}`;
+      $("patterns").innerHTML = `<div class="panel"><div class="empty">Your own patterns build up as your tracker sees restocks: which stores restock most and at what time of day.</div></div>${newsHTML()}${OTHER_TRACKERS}`;
       return;
     }
     const hours = new Array(24).fill(0);
@@ -457,7 +470,7 @@
       <div class="panel">${rows.map(([name, ev]) => `
         <div class="row"><div><b>${esc(name)}</b><br><span style="color:var(--muted);font-size:12.5px">usually around ${hourLabel(typicalHour(ev))} · last ${esc(when(ev[ev.length - 1].t))}</span></div>
         <span class="tag in">${ev.length} restock${ev.length > 1 ? "s" : ""}</span></div>`).join("")}
-      </div>${WEB_INSIGHTS}${OTHER_TRACKERS}`;
+      </div>${newsHTML()}${OTHER_TRACKERS}`;
   }
 
   function secondsAgo(iso) { return Math.max(0, Math.round((Date.now() - new Date(iso)) / 1000)); }
@@ -638,6 +651,8 @@
   })();
 
   load();
+  loadNews();
+  setInterval(() => { if (!document.hidden) loadNews(); }, 30 * 60 * 1000);
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
