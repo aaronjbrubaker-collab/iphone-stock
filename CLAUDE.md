@@ -42,7 +42,7 @@ home-screen dashboard. Keep it free to run and dependency-light.
   URL. Resolves the branch head sha via api.github.com (conditional request, 304s are
   free) then fetches files by sha from raw (raw caches branch names ~5 min, which made
   refresh look broken). Falls back to the branch URL if the API is rate limited.
-  Syncs every 20s while open, live "updated Xs ago", pull to refresh, source badge.
+  Syncs every 10s while open with a saved token (cache-busted, authenticated API), else every 20s, live "updated Xs ago", pull to refresh, source badge.
   `?repo=owner/name` overrides (handy for local testing), `?src=<url>` for local files. Has a
   "Send test push" box (validates the topic name; sends an alert identical to a real
   restock, labeled TEST); the ntfy topic is stored in the viewer's localStorage only.

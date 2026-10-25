@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Duo Watch</title>
-<meta name="theme-color" content="#0a0e17">
+<meta name="theme-color" content="#12101f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -14,29 +14,50 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <style>
   :root {
-    --bg: #0a0e17; --panel: #111725; --card: #151c2c; --card-2: #1a2235;
-    --line: #232c40; --text: #eef1f7; --muted: #8b95ab; --faint: #5d6780;
-    --accent: #f5c542; --accent-ink: #1d1600; --accent-soft: rgba(245,197,66,.12);
-    --ok: #3ddc84; --ok-ink: #04210f; --ok-soft: rgba(61,220,132,.14);
-    --bad: #ff6b6b; --link: #7fb2ff;
-    --night: #1e2638; --night-ink: #dfe6f5; --white: #f4f1ea; --white-ink: #1c1c1c;
-    --radius: 18px;
+    --bg: #12101f; --panel: #1a1730; --card: #1e1a36; --card-2: #262143;
+    --line: #322c55; --text: #f4f0ff; --muted: #a8a1cc; --faint: #6f6896;
+    --accent: #ff9ecf; --accent-ink: #2b0f1e; --accent-soft: rgba(255,158,207,.13);
+    --ok: #5cf2a3; --ok-ink: #062615; --ok-soft: rgba(92,242,163,.14);
+    --bad: #ff7a8a; --link: #bba8ff; --lilac: #c9b8ff;
+    --night: #2a2550; --night-ink: #e6e0ff; --white: #f7f2ea; --white-ink: #2a2433;
+    --radius: 22px;
   }
   @media (prefers-color-scheme: light) {
     :root:not([data-theme="dark"]) {
-      --bg: #f3f4f7; --panel: #ffffff; --card: #ffffff; --card-2: #f6f7fa;
-      --line: #e3e6ed; --text: #121722; --muted: #5b6477; --faint: #8a93a6;
-      --accent: #d99a00; --accent-ink: #ffffff; --accent-soft: rgba(217,154,0,.12);
-      --ok: #12924a; --ok-ink: #ffffff; --ok-soft: rgba(18,146,74,.12);
-      --link: #1f63d6; --night: #1e2638; --night-ink: #eef1f7; --white: #f4f1ea; --white-ink: #1c1c1c;
+      --bg: #f6f2ff; --panel: #ffffff; --card: #ffffff; --card-2: #f3eeff;
+      --line: #e6dcff; --text: #231c3d; --muted: #6d6490; --faint: #a39cc0;
+      --accent: #e0559b; --accent-ink: #ffffff; --accent-soft: rgba(224,85,155,.10);
+      --ok: #14995a; --ok-ink: #ffffff; --ok-soft: rgba(20,153,90,.10);
+      --link: #6b4fd8; --lilac: #8f74f0;
+      --night: #2a2550; --night-ink: #f0ebff; --white: #f7f2ea; --white-ink: #2a2433;
     }
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); color: var(--text); }
-  body { background-image: radial-gradient(900px 420px at 50% -160px, rgba(245,197,66,.10), transparent 70%); background-repeat: no-repeat; }
-  body.instock { background-image: radial-gradient(900px 460px at 50% -160px, rgba(61,220,132,.22), transparent 70%); }
-  .brand { display: flex; align-items: center; gap: 12px; }
-  .brand img { width: 44px; height: 44px; border-radius: 11px; box-shadow: 0 6px 18px rgba(0,0,0,.35); flex: none; }
+  body { background-image: radial-gradient(700px 380px at 20% -140px, rgba(201,184,255,.16), transparent 70%), radial-gradient(600px 340px at 95% -120px, rgba(255,158,207,.12), transparent 70%); background-repeat: no-repeat; }
+  body.instock { background-image: radial-gradient(900px 460px at 50% -160px, rgba(92,242,163,.24), transparent 70%); }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .mascot { width: 64px; height: 70px; flex: none; overflow: visible; }
+  .mascot .bod { transform-origin: 60px 112px; animation: idle 3.2s ease-in-out infinite; }
+  .mascot .eyes-open { transform-origin: 60px 58px; animation: blink 4.5s infinite; }
+  .mascot .pupils { animation: look 6s ease-in-out infinite; }
+  .mascot .eyes-shut, .mascot .zzz, .mascot .spark, .mascot .mouth-o { display: none; }
+  .mascot.happy .bod { animation: hop .55s ease-in-out infinite; }
+  .mascot.happy .spark { display: block; animation: twinkle 1s ease-in-out infinite; }
+  .mascot.happy .mouth-smile { display: none; } .mascot.happy .mouth-o { display: block; }
+  .mascot.happy .pupils { animation: none; }
+  .mascot.sleepy .eyes-open { display: none; } .mascot.sleepy .eyes-shut { display: block; }
+  .mascot.sleepy .zzz { display: block; animation: drift 2.4s ease-in-out infinite; }
+  .mascot.sleepy .bod { animation: idle 5s ease-in-out infinite; }
+  @keyframes idle { 0%,100% { transform: translateY(0) rotate(0); } 50% { transform: translateY(-2px) rotate(-1.5deg); } }
+  @keyframes hop { 0%,100% { transform: translateY(0) scale(1,1); } 40% { transform: translateY(-9px) scale(.97,1.03); } 80% { transform: translateY(0) scale(1.04,.96); } }
+  @keyframes blink { 0%,92%,100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+  @keyframes look { 0%,40%,100% { transform: translateX(0); } 50%,60% { transform: translateX(2.5px); } 75%,85% { transform: translateX(-2.5px); } }
+  @keyframes twinkle { 0%,100% { opacity: .2; transform: scale(.7); } 50% { opacity: 1; transform: scale(1.1); } }
+  @keyframes drift { 0% { opacity: 0; transform: translate(0,4px); } 50% { opacity: 1; } 100% { opacity: 0; transform: translate(6px,-8px); } }
+  @media (prefers-reduced-motion: reduce) { .mascot * { animation: none !important; } }
+  .bubble { display: inline-block; margin-top: 6px; background: var(--card-2); border: 1px solid var(--line); color: var(--text); font-size: 12.5px; font-weight: 600; padding: 5px 11px; border-radius: 14px 14px 14px 4px; }
+  body.instock .bubble { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
   /* Stats strip */
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
   .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; min-width: 0; }
@@ -54,7 +75,7 @@
   .insight span { color: var(--muted); font-size: 13px; }
   .insight a { font-size: 12px; }
   body {
-    font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+    font: 15px/1.45 ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     padding: max(14px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
     -webkit-font-smoothing: antialiased;
   }
@@ -95,7 +116,7 @@
 
   /* Banner */
   .banner { border-radius: var(--radius); padding: 16px; margin-bottom: 16px; display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
-  .banner.calm { background: var(--accent-soft); border: 1px solid rgba(245,197,66,.35); }
+  .banner.calm { background: var(--accent-soft); border: 1px solid rgba(255,158,207,.35); }
   .banner.hot { background: var(--ok-soft); border: 1px solid var(--ok); }
   .banner.err { background: rgba(255,107,107,.1); border: 1px solid rgba(255,107,107,.4); color: var(--text); }
   .banner b { display: block; font-size: 15px; margin-bottom: 2px; }
@@ -173,10 +194,31 @@
 <div class="wrap">
   <header class="top">
     <div class="brand">
-      <img src="icon-192.png" alt="">
+      <svg class="mascot" id="mascot" viewBox="0 0 120 132" aria-hidden="true">
+        <defs><linearGradient id="scr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#3b3270"/><stop offset="1" stop-color="#5a3f7e"/></linearGradient></defs>
+        <ellipse cx="60" cy="124" rx="28" ry="5" fill="rgba(0,0,0,.35)"/>
+        <g class="spark" fill="#ffe28a"><path d="M10 26l3 7 7 3-7 3-3 7-3-7-7-3 7-3z"/><path d="M106 14l2 5 5 2-5 2-2 5-2-5-5-2 5-2z"/><path d="M108 70l2 4 4 2-4 2-2 4-2-4-4-2 4-2z"/></g>
+        <g class="bod">
+          <path d="M23 74 q-11 3 -10 15" stroke="#c9b8ff" stroke-width="6" stroke-linecap="round" fill="none"/>
+          <path d="M97 74 q11 3 10 15" stroke="#c9b8ff" stroke-width="6" stroke-linecap="round" fill="none"/>
+          <rect x="40" y="108" width="12" height="10" rx="5" fill="#c9b8ff"/><rect x="68" y="108" width="12" height="10" rx="5" fill="#c9b8ff"/>
+          <rect x="22" y="12" width="76" height="100" rx="20" fill="#26214a" stroke="#c9b8ff" stroke-width="3"/>
+          <rect x="29" y="19" width="62" height="86" rx="14" fill="url(#scr)"/>
+          <line x1="60" y1="20" x2="60" y2="104" stroke="rgba(255,255,255,.22)" stroke-width="2" stroke-dasharray="3 5"/>
+          <circle cx="40" cy="27" r="2.6" fill="#120f22"/><circle cx="80" cy="27" r="2.6" fill="#120f22"/>
+          <g class="eyes-open"><ellipse cx="46" cy="58" rx="6" ry="7.5" fill="#fff"/><ellipse cx="74" cy="58" rx="6" ry="7.5" fill="#fff"/>
+            <g class="pupils"><circle cx="47" cy="59.5" r="3.6" fill="#1b1733"/><circle cx="75" cy="59.5" r="3.6" fill="#1b1733"/><circle cx="48.4" cy="57.6" r="1.2" fill="#fff"/><circle cx="76.4" cy="57.6" r="1.2" fill="#fff"/></g></g>
+          <g class="eyes-shut" stroke="#fff" stroke-width="3" stroke-linecap="round" fill="none"><path d="M40 59 q6 5 12 0"/><path d="M68 59 q6 5 12 0"/></g>
+          <ellipse cx="37" cy="71" rx="5.5" ry="3.2" fill="#ff8fc0" opacity=".75"/><ellipse cx="83" cy="71" rx="5.5" ry="3.2" fill="#ff8fc0" opacity=".75"/>
+          <path class="mouth-smile" d="M53 72 q7 6 14 0" stroke="#fff" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <ellipse class="mouth-o" cx="60" cy="75" rx="5" ry="6" fill="#1b1733" stroke="#fff" stroke-width="2"/>
+        </g>
+        <g class="zzz" fill="#c9b8ff" font-weight="800" font-family="ui-rounded, sans-serif"><text x="96" y="20" font-size="14">z</text><text x="106" y="8" font-size="10">z</text></g>
+      </svg>
       <div>
         <div class="eyebrow" id="eyebrow">Within 25 mi · unlocked</div>
         <h1>iPhone Duo <span>256GB</span></h1>
+        <span class="bubble" id="bubble">Hi! Getting ready…</span>
       </div>
     </div>
     <div class="meta">
@@ -241,8 +283,8 @@
     if (Date.now() < apiBackoffUntil) return null;
     try {
       const tok = store.get("ghToken");
-      const r = await fetch(`https://api.github.com/repos/${REPO}/git/ref/heads/status`,
-        { cache: "no-cache", headers: tok ? { Authorization: `Bearer ${tok}` } : {} });
+      const url = `https://api.github.com/repos/${REPO}/git/ref/heads/status` + (tok ? `?t=${Date.now()}` : "");
+      const r = await fetch(url, { cache: tok ? "no-store" : "no-cache", headers: tok ? { Authorization: `Bearer ${tok}` } : {} });
       if (r.status === 403 || r.status === 429) {           // rate limited: fall back for 10 min
         apiBackoffUntil = Date.now() + 10 * 60 * 1000;
         return null;
@@ -342,7 +384,7 @@
       const usual = typicalHour(last ? r.filter((e) => e.store_id === last.store_id) : []);
       const detail = last
         ? `<b>${esc(last.store)} last restocked ${esc(when(last.t))}</b><small>${esc(last.color || last.label)}${usual !== null ? ` · usually around ${hourLabel(usual)}` : ""} · you'll get a push the moment it lands again</small>`
-        : `<b>Nothing in stock nearby right now</b><small>You'll get a push on your phone the moment either color lands at one of these stores.</small>`;
+        : `<b>No Duos nearby yet… but I'm on it 🫡</b><small>The second either color lands at one of these stores, your phone buzzes.</small>`;
       html += `<div class="banner calm"><div>${detail}</div>
         <a class="cta accent" href="${esc((STATUS.models[0] || {}).url || "https://www.apple.com/shop/buy-iphone")}" target="_blank" rel="noopener">Open Apple Store</a></div>`;
     }
@@ -480,6 +522,18 @@
     return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m ago`;
   }
   // PC runner publishes at least every ~2 min; GitHub backup every ~5-15 min.
+  let lastMood = "";
+  function renderMascot(cls) {
+    const stores = STATUS ? storesFrom(STATUS) : [];
+    const hot = stores.filter((x) => x.any);
+    const mood = hot.length ? "happy" : (cls === "stale" || (STATUS && STATUS.error)) ? "sleepy" : "watching";
+    const m = $("mascot"); if (m) m.setAttribute("class", "mascot " + mood);
+    const text = hot.length ? `IT'S HERE!! ${hot[0].name} has it, go go go! 🎉`
+      : mood === "sleepy" ? (STATUS && STATUS.error ? "Apple's ignoring me rn… retrying 💤" : "Zzz… my PC buddy stopped checking 💤")
+      : checkingSince ? "Peeking at Apple right now… 👀"
+      : `Watching ${stores.length} stores for you ✨`;
+    if (text !== lastMood) { $("bubble").textContent = text; lastMood = text; }
+  }
   function renderHeader() {
     if (!STATUS) return;
     const sec = secondsAgo(STATUS.checked_at);
@@ -497,6 +551,7 @@
       ? `checking Apple now… ${Math.round((Date.now() - checkingSince) / 1000)}s`
       : STATUS.error ? `last check failed · ${ago(sec)}` : `last Apple check ${tm(STATUS.checked_at)} · ${ago(sec)}`;
     if (STATUS.radius_miles) $("eyebrow").textContent = `Apple Stores · ${STATUS.radius_miles} mi · unlocked`;
+    renderMascot(cls);
   }
 
   function toast(msg) {
@@ -513,7 +568,7 @@
     const btn = $("refresh");
     if (!btn.disabled) btn.textContent = (!isLive() && store.get("ghToken") && REPO) ? "Check now" : "Refresh";
   }
-  let lastDispatch = 0, watchTimer = null, checkingSince = 0;
+  let lastDispatch = 0, watchTimer = null, checkingSince = 0, syncTick = 0;
   async function dispatchCheck(force = false) {
     const tok = store.get("ghToken");
     if (!tok || !REPO) return "no-token";
@@ -642,7 +697,8 @@
   document.addEventListener("visibilitychange", () => { if (!document.hidden) load(); });
   window.addEventListener("pageshow", () => load());
   window.addEventListener("online", () => load());
-  setInterval(() => { if (!document.hidden) load(); }, 20000);   // sync every 20s while open
+  // Sync while open: every 10s with a saved token (5,000 API calls/hr), else every 20s (60/hr limit).
+  setInterval(() => { if (!document.hidden && (store.get("ghToken") || ++syncTick % 2 === 0)) load(); }, 10000);
   setInterval(() => { renderHeader(); updateRefreshLabel(); }, 1000);                                // live "updated Xs ago"
 
   // ---------- pull to refresh (home-screen app has no browser reload) ----------
