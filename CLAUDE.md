@@ -53,7 +53,7 @@ home-screen dashboard. Keep it free to run and dependency-light.
   a real Apple check. Then it syncs every 8s until a fresh check lands.
   Stats strip (in stock / last seen / restocks), per-store "restocked Xm ago" from history,
   green page glow while anything is in stock. "Patterns & news" tab renders `docs/news.json`
-  ({updated_at, summary, items:[{title, summary, source, url, date}]}), refreshed twice daily
+  ({updated_at, summary, items:[{title, summary, source, url, date}]}), refreshed daily at 7:47 AM ET
   by a scheduled Claude task (paraphrased summaries with links, never copied text) and links out to other trackers (Manzana, Apple Inventory Check, iPhone Stock
   Checker); their data is not scraped or imported.
 - `config.json`: models (`label`, `color`, `part`, `url`), `zip`, `radius_miles`, `max_stores`,
