@@ -4,7 +4,7 @@ name: Check iPhone stock
 # couple of minutes with source "pc", and this job skips itself to avoid double alerts.
 on:
   schedule:
-    - cron: "*/5 * * * *"   # every 5 minutes (GitHub may delay scheduled runs at busy times)
+    - cron: "2-59/5 * * * *"  # every 5 min, offset from :00 (GitHub delays busy slots)
   workflow_dispatch:         # lets you run it manually from the Actions tab
 
 permissions:
