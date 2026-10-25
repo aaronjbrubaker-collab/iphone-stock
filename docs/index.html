@@ -493,7 +493,9 @@
       ? (STATUS.error && sec <= 1200 ? "PC runner can't reach Apple · retrying"
          : cls === "ok" ? `Live · your PC checks every ${STATUS.poll_seconds || 60}s` : "PC runner looks offline · backup takes over")
       : (cls === "ok" ? "GitHub backup · every ~5 min" : "Checker looks paused");
-    $("age").textContent = STATUS.error ? `last check failed · ${ago(sec)}` : `updated ${ago(sec)}`;
+    $("age").textContent = checkingSince
+      ? `checking Apple now… ${Math.round((Date.now() - checkingSince) / 1000)}s`
+      : STATUS.error ? `last check failed · ${ago(sec)}` : `last Apple check ${tm(STATUS.checked_at)} · ${ago(sec)}`;
     if (STATUS.radius_miles) $("eyebrow").textContent = `Apple Stores · ${STATUS.radius_miles} mi · unlocked`;
   }
 
@@ -511,7 +513,7 @@
     const btn = $("refresh");
     if (!btn.disabled) btn.textContent = (!isLive() && store.get("ghToken") && REPO) ? "Check now" : "Refresh";
   }
-  let lastDispatch = 0, watchTimer = null;
+  let lastDispatch = 0, watchTimer = null, checkingSince = 0;
   async function dispatchCheck(force = false) {
     const tok = store.get("ghToken");
     if (!tok || !REPO) return "no-token";
@@ -528,10 +530,11 @@
   function watchForFresh(before) {
     clearInterval(watchTimer);
     const started = Date.now();
+    checkingSince = started;
     watchTimer = setInterval(async () => {
       await load();
-      if (STATUS && STATUS.checked_at !== before) { clearInterval(watchTimer); toast("Fresh check done"); }
-      else if (Date.now() - started > 180000) { clearInterval(watchTimer); toast("GitHub is slow · try again shortly"); }
+      if (STATUS && STATUS.checked_at !== before) { clearInterval(watchTimer); checkingSince = 0; renderHeader(); toast("Fresh check done ✓"); }
+      else if (Date.now() - started > 180000) { clearInterval(watchTimer); checkingSince = 0; renderHeader(); toast("GitHub is slow · try again shortly"); }
     }, 8000);
   }
 
