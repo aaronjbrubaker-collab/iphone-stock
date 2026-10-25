@@ -259,7 +259,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         while True:
             t0 = time.time()
-            status, history, alerts = cs.check_once(settings, prev, history, source="pc", log=lambda m: None)
+            status, history, alerts = cs.check_once(
+                settings, prev, history, source="pc",
+                log=lambda m: print(f"[{time.strftime('%H:%M:%S')}] !!! {m}") if m.startswith("WARN") else None)
             checks += 1
             status["poll_seconds"] = poll
             status["runner"] = {"started_at": started, "checks": checks}
