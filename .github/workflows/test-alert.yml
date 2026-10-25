@@ -1,6 +1,7 @@
 name: Send test alert
 
-# Run this from the Actions tab to confirm push notifications reach your phone.
+# Sends a DRILL restock alert through the real alert code, using the NTFY_TOPIC secret.
+# Run it from the Actions tab, or from the app's "Send test push" button (with a token).
 on:
   workflow_dispatch:
   push:
@@ -16,7 +17,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Send test push
+      - name: Send drill restock alert
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-        run: python checker/check_stock.py --config config.json --test-alert
+        run: python checker/check_stock.py --config config.json --drill

@@ -362,6 +362,8 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--fixture", default=None, help="Read Apple response from a file instead of the network")
     ap.add_argument("--dry-run", action="store_true", help="Print alerts instead of sending them")
     ap.add_argument("--test-alert", action="store_true", help="Send a test push notification and exit")
+    ap.add_argument("--drill", action="store_true",
+                    help="Send a fake restock alert through the real alert code (title starts with DRILL)")
     ap.add_argument("--source", default="cli", help="Label for who produced this status (github, pc, cli)")
     ap.add_argument("--defer-to-pc", type=int, default=0, metavar="SECONDS",
                     help="Skip (write nothing) if the PC runner published within this many seconds")
@@ -378,6 +380,23 @@ def main(argv: list[str] | None = None) -> int:
                   "This is what a restock alert looks like. Tap to open the Apple Store.",
                   settings["server"], args.dry_run, click=url, priority="high", tags="iphone,white_check_mark")
         print("Test alert sent.")
+        return 0
+
+    if args.drill:
+        if not settings["topic"] and not args.dry_run:
+            print("ERROR: no ntfy topic set (NTFY_TOPIC secret)", file=sys.stderr)
+            return 1
+        if not settings["models"]:
+            print("ERROR: no models configured", file=sys.stderr)
+            return 1
+        fake_store = {"id": "DRILL", "name": "Drill Store (not real)", "distance": "0 mi",
+                      "available": True, "quote": "Available Today"}
+        model = settings["models"][0]
+        for title, message, click in build_alerts({model["part"]: [fake_store]}, settings["models"]):
+            tap = BAG_URL if settings["alert_click"] == "bag" else click
+            send_ntfy(settings["topic"], "DRILL - " + title, "DRILL, not a real restock.\n" + message,
+                      settings["server"], args.dry_run, click=tap, actions=alert_actions(click))
+        print("Drill alert sent.")
         return 0
 
     prev = load_json(args.prev, {})

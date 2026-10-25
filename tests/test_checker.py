@@ -176,6 +176,13 @@ class EndToEndTests(unittest.TestCase):
                 events = json.load(f)["events"]
             self.assertEqual([(e["kind"], e["store_id"]) for e in events], [("in", "R001")])
 
+    def test_drill_dry_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = os.path.join(tmp, "config.json")
+            with open(cfg, "w") as f:
+                json.dump({"models": [dict(MODELS[0], url="https://example.com/black")]}, f)
+            self.assertEqual(cs.main(["--config", cfg, "--drill", "--dry-run"]), 0)
+
     def test_test_alert_dry_run(self):
         with tempfile.TemporaryDirectory() as tmp:
             cfg = os.path.join(tmp, "config.json")
