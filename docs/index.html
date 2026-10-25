@@ -381,7 +381,8 @@
     if (STATUS.error) cls = "warn";
     $("live").className = "live " + cls;
     $("source").textContent = pc
-      ? (cls === "ok" ? `Live · your PC checks every ${STATUS.poll_seconds || 15}s` : "PC runner looks offline · backup takes over")
+      ? (STATUS.error && sec <= 1200 ? "PC runner can't reach Apple · retrying"
+         : cls === "ok" ? `Live · your PC checks every ${STATUS.poll_seconds || 60}s` : "PC runner looks offline · backup takes over")
       : (cls === "ok" ? "GitHub backup · every ~5 min" : "Checker looks paused");
     $("age").textContent = STATUS.error ? `last check failed · ${ago(sec)}` : `updated ${ago(sec)}`;
     if (STATUS.radius_miles) $("eyebrow").textContent = `Apple Stores · ${STATUS.radius_miles} mi · unlocked`;
