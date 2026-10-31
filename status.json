@@ -1,0 +1,131 @@
+{
+  "source": "github",
+  "radius_miles": 25.0,
+  "checked_at": "2026-10-31T20:30:00+00:00",
+  "error": null,
+  "models": [
+    {
+      "part": "MK1H4LL/A",
+      "label": "iPhone Duo 512GB Night Sky",
+      "color": "Night Sky",
+      "url": "https://www.apple.com/shop/buy-iphone/iphone-duo/7.6-inch-display-256gb-night-sky-unlocked",
+      "any_available": false,
+      "stores": [
+        {
+          "id": "R040",
+          "name": "Fashion Valley",
+          "city": "San Diego, CA",
+          "distance": "1.32 mi",
+          "miles": 1.32,
+          "available": false,
+          "quote": "Currently unavailable",
+          "address": "7007 Friars Road, San Diego, CA 92108",
+          "phone": "619-682 3477",
+          "store_url": "https://www.apple.com/retail/fashionvalley",
+          "maps_url": "https://www.google.com/maps/search/?api=1&query=Apple+Fashion+Valley+7007+Friars+Road%2C+San+Diego%2C+CA+92108"
+        },
+        {
+          "id": "R082",
+          "name": "UTC",
+          "city": "San Diego, CA",
+          "distance": "7.92 mi",
+          "miles": 7.92,
+          "available": false,
+          "quote": "Currently unavailable",
+          "address": "4305 La Jolla Village Drive, San Diego, CA 92122",
+          "phone": "858-795 6870",
+          "store_url": "https://www.apple.com/retail/utc",
+          "maps_url": "https://www.google.com/maps/search/?api=1&query=Apple+UTC+4305+La+Jolla+Village+Drive%2C+San+Diego%2C+CA+92122"
+        },
+        {
+          "id": "R213",
+          "name": "Otay Ranch",
+          "city": "Chula Vista, CA",
+          "distance": "14.56 mi",
+          "miles": 14.56,
+          "available": false,
+          "quote": "Currently unavailable",
+          "address": "2015 Birch Road, Chula Vista, CA 91915",
+          "phone": "619-205 6400",
+          "store_url": "https://www.apple.com/retail/otayranch",
+          "maps_url": "https://www.google.com/maps/search/?api=1&query=Apple+Otay+Ranch+2015+Birch+Road%2C+Chula+Vista%2C+CA+91915"
+        },
+        {
+          "id": "R294",
+          "name": "Carlsbad",
+          "city": "Carlsbad, CA",
+          "distance": "21.83 mi",
+          "miles": 21.83,
+          "available": false,
+          "quote": "Currently unavailable",
+          "address": "1925 Calle Barcelona, Carlsbad, CA 92009",
+          "phone": "760-697 9800",
+          "store_url": "https://www.apple.com/retail/carlsbad/",
+          "maps_url": "https://www.google.com/maps/search/?api=1&query=Apple+Carlsbad+1925+Calle+Barcelona%2C+Carlsbad%2C+CA+92009"
+        }
+      ]
+    },
+    {
+      "part": "MK1G4LL/A",
+      "label": "iPhone Duo 512GB Star White",
+      "color": "Star White",
+      "url": "https://www.apple.com/shop/buy-iphone/iphone-duo/7.6-inch-display-256gb-star-white-unlocked",
+      "any_available": false,
+      "stores": [
+        {
+          "id": "R040",
+          "name": "Fashion Valley",
+          "city": "San Diego, CA",
+          "distance": "1.32 mi",
+          "miles": 1.32,
+          "available": false,
+          "quote": "Currently unavailable",
+          "address": "7007 Friars Road, San Diego, CA 92108",
+          "phone": "619-682 3477",
+          "store_url": "https://www.apple.com/retail/fashionvalley",
+          "maps_url": "https://www.google.com/maps/search/?api=1&query=Apple+Fashion+Valley+7007+Friars+Road%2C+San+Diego%2C+CA+92108"
+        },
+        {
+          "id": "R082",
+          "name": "UTC",
+          "city": "San Diego, CA",
+          "distance": "7.92 mi",
+          "miles": 7.92,
+          "available": false,
+          "quote": "Currently unavailable",
+          "address": "4305 La Jolla Village Drive, San Diego, CA 92122",
+          "phone": "858-795 6870",
+          "store_url": "https://www.apple.com/retail/utc",
+          "maps_url": "https://www.google.com/maps/search/?api=1&query=Apple+UTC+4305+La+Jolla+Village+Drive%2C+San+Diego%2C+CA+92122"
+        },
+        {
+          "id": "R213",
+          "name": "Otay Ranch",
+          "city": "Chula Vista, CA",
+          "distance": "14.56 mi",
+          "miles": 14.56,
+          "available": false,
+          "quote": "Currently unavailable",
+          "address": "2015 Birch Road, Chula Vista, CA 91915",
+          "phone": "619-205 6400",
+          "store_url": "https://www.apple.com/retail/otayranch",
+          "maps_url": "https://www.google.com/maps/search/?api=1&query=Apple+Otay+Ranch+2015+Birch+Road%2C+Chula+Vista%2C+CA+91915"
+        },
+        {
+          "id": "R294",
+          "name": "Carlsbad",
+          "city": "Carlsbad, CA",
+          "distance": "21.83 mi",
+          "miles": 21.83,
+          "available": false,
+          "quote": "Currently unavailable",
+          "address": "1925 Calle Barcelona, Carlsbad, CA 92009",
+          "phone": "760-697 9800",
+          "store_url": "https://www.apple.com/retail/carlsbad/",
+          "maps_url": "https://www.google.com/maps/search/?api=1&query=Apple+Carlsbad+1925+Calle+Barcelona%2C+Carlsbad%2C+CA+92009"
+        }
+      ]
+    }
+  ],
+  "last_success_at": "2026-10-31T20:30:00+00:00"
+}
